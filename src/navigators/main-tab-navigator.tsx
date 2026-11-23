@@ -25,7 +25,13 @@ export function MainTabNavigator() {
   const { isDark } = useAppTheme();
   const { hasPermission } = usePermissions();
 
+  // Permissions mapped directly to grocy-client (web version) and grocy-server database codes
   const salesPermissions = [
+    'transaction.sales.view',
+    'contact.customer.view',
+    'crm.view',
+    'settings.payment_method.view',
+    // Legacy fallbacks
     'approve-invoice',
     'loss-profit-report',
     'sales-return-list',
@@ -35,6 +41,14 @@ export function MainTabNavigator() {
   ];
 
   const financePermissions = [
+    'accounting.payment.view',
+    'accounting.journal.view',
+    'accounting.gl.view',
+    'report.profit_loss.view',
+    'report.balance_sheet.view',
+    'report.customer_outstanding.view',
+    'transaction.purchase.view',
+    // Legacy fallbacks
     'payment-ar-list',
     'payment-ap-list',
     'purchase-report',
@@ -42,7 +56,16 @@ export function MainTabNavigator() {
     '4pilar-pelunasan-hutang',
   ];
 
-  const warehousePermissions = ['stock-opname-list', 'product-stock-list'];
+  const warehousePermissions = [
+    'product.view',
+    'settings.warehouse.view',
+    'transaction.stock_opname.view',
+    'transaction.adjustment.view',
+    'transaction.transfer_stock.view',
+    // Legacy fallbacks
+    'stock-opname-list',
+    'product-stock-list',
+  ];
   const insets = useSafeAreaInsets();
 
   return (
