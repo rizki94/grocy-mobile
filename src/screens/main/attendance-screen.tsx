@@ -412,9 +412,46 @@ export function AttendanceScreen({ navigation }: any) {
     );
   }
 
+  // View: Loading state for Personal Mode
+  if (isPersonalMode && loading && !employee) {
+    return (
+      <AppLayout title="Absensi Mandiri" showBack={false}>
+        <View className="flex-1 items-center justify-center p-6">
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text className="text-xs text-muted-foreground mt-3 font-semibold">
+            Memuat profil absensi Anda...
+          </Text>
+        </View>
+      </AppLayout>
+    );
+  }
+
+  // View: Failed state for Personal Mode
+  if (isPersonalMode && !loading && !employee) {
+    return (
+      <AppLayout title="Absensi Mandiri" showBack={false}>
+        <View className="flex-1 items-center justify-center p-6">
+          <AlertCircle size={40} color={colors.destructive} />
+          <Text className="text-base font-bold text-foreground mt-3 text-center">
+            Gagal Memuat Profil Karyawan
+          </Text>
+          <Text className="text-xs text-muted-foreground mt-1 text-center leading-relaxed">
+            Tidak dapat menemukan atau menghubungkan profil karyawan aktif untuk akun ini.
+          </Text>
+          <TouchableOpacity
+            onPress={fetchMyStatus}
+            className="mt-4 px-5 py-2.5 rounded-xl bg-primary active:opacity-80"
+          >
+            <Text className="text-xs font-bold text-primary-foreground">Coba Lagi</Text>
+          </TouchableOpacity>
+        </View>
+      </AppLayout>
+    );
+  }
+
   // View: Attendance Card & Action (both Personal Mode and Verified Kiosk Mode)
   return (
-    <AppLayout title={isPersonalMode ? "Absensi Mandiri" : "Konfirmasi Absensi"}>
+    <AppLayout title={isPersonalMode ? "Absensi Mandiri" : "Konfirmasi Absensi"} showBack={!isPersonalMode}>
       <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
         {/* Success Banner */}
         {successMessage && (

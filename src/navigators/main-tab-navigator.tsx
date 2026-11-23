@@ -1,8 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AdminSalesReportScreen } from '../screens/main/admin-sales-report-screen';
+import { AttendanceScreen } from '../screens/main/attendance-screen';
 import { SettingsScreen } from '../screens/main/settings-screen';
-import { Settings, TrendingUp } from 'lucide-react-native';
+import { Settings, TrendingUp, Clock } from 'lucide-react-native';
 import { useAppTheme } from '../hooks/use-app-theme';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,6 +44,21 @@ export function MainTabNavigator() {
           tabBarLabel: 'Penjualan',
           tabBarIcon: ({ color, size, focused }) => (
             <TrendingUp
+              size={focused ? size + 2 : size}
+              color={color}
+              strokeWidth={focused ? 2.5 : 2}
+            />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="AttendanceTab"
+        component={AttendanceScreen}
+        options={{
+          tabBarLabel: 'Absensi',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Clock
               size={focused ? size + 2 : size}
               color={color}
               strokeWidth={focused ? 2.5 : 2}
