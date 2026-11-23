@@ -1,8 +1,19 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, Image } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  Modal,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Card } from '../../components/ui/card';
-import { AuthContext, UserContext } from '../../contexts/app-context';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import DeviceInfo from 'react-native-device-info';
 import {
   User as UserIcon,
   LogOut,
@@ -11,31 +22,31 @@ import {
   ChevronRight,
   Check,
   RefreshCw,
-  Loader2,
+  Server,
+  Shield,
+  Building2,
+  Database,
+  Smartphone,
 } from 'lucide-react-native';
 
-import { useNavigation } from '@react-navigation/native';
+import { AuthContext, UserContext, ConnectionContext } from '../../contexts/app-context';
 import { useAppTheme } from '../../hooks/use-app-theme';
-import { useTranslation } from 'react-i18next';
 import { useThemeColor } from '../../lib/colors';
-import DeviceInfo from 'react-native-device-info';
-import Logo from '../../assets/logo.svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAutoUpdate } from '../../hooks/use-auto-update';
+import Logo from '../../assets/logo.svg';
 
 export function SettingsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { logout } = useContext(AuthContext);
   const user = useContext(UserContext);
+  const connection = useContext(ConnectionContext);
   const { colorScheme, setColorScheme } = useAppTheme();
   const { i18n, t } = useTranslation();
   const colors = useThemeColor();
   const insets = useSafeAreaInsets();
   const { checkForUpdates, isChecking } = useAutoUpdate();
 
-  const [themePreference, setThemePreference] = useState<
-    'light' | 'dark' | 'system'
-  >('system');
+  const [themePreference, setThemePreference] = useState<'light' | 'dark' | 'system'>('system');
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
 
@@ -45,33 +56,48 @@ export function SettingsScreen() {
     });
   }, []);
 
-  const currentLanguage = i18n.language || 'en';
-  const languageLabel =
-    currentLanguage === 'id' ? 'Bahasa Indonesia' : 'English';
+  const currentLanguage = i18n.language || 'id';
+  const languageLabel = currentLanguage === 'id' ? 'Bahasa Indonesia' : 'English';
 
   const themeLabel =
     themePreference === 'dark'
-      ? t('settings.selectTheme.dark')
+      ? t('settings.selectTheme.dark') || 'Gelap'
       : themePreference === 'light'
-        ? t('settings.selectTheme.light')
-        : t('settings.selectTheme.systemDefault');
+      ? t('settings.selectTheme.light') || 'Terang'
+      : t('settings.selectTheme.systemDefault') || 'Sistem Default';
 
   const themes = [
-    { label: t('settings.selectTheme.light'), value: 'light' },
-    { label: t('settings.selectTheme.dark'), value: 'dark' },
-    { label: t('settings.selectTheme.systemDefault'), value: 'system' },
+    { label: t('settings.selectTheme.light') || 'Terang', value: 'light' },
+    { label: t('settings.selectTheme.dark') || 'Gelap', value: 'dark' },
+    { label: t('settings.selectTheme.systemDefault') || 'Sistem Default', value: 'system' },
   ];
 
   const languages = [
-    { label: t('settings.selectLanguage.english'), value: 'en' },
-    { label: t('settings.selectLanguage.bahasa'), value: 'id' },
+    { label: 'Bahasa Indonesia', value: 'id' },
+    { label: 'English', value: 'en' },
   ];
 
-  const roleName = user?.role_name || user?.role;
-  const displayRole =
-    roleName?.toLowerCase() === 'administrator'
-      ? t('settings.administrator')
-      : roleName || t('settings.administrator');
+  const displayName = user?.displayName || user?.name || user?.username || 'Staff User';
+  const username = user?.username || user?.name || '-';
+  const roleName = user?.role_name || user?.role || 'Staff';
+  const branchName = user?.branchName || user?.branchCode || 'Pusat';
+  const activeDatabase = connection?.database || 'grocy_app';
+  const serverUrl = connection?.url || 'http://localhost:3001';
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Konfirmasi Keluar',
+      'Apakah Anda yakin ingin keluar dari akun ini?',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Keluar',
+          style: 'destructive',
+          onPress: logout,
+        },
+      ]
+    );
+  };
 
   return (
     <View
@@ -82,12 +108,11 @@ export function SettingsScreen() {
         paddingRight: insets.right,
       }}
     >
-      <View className="bg-card border-b border-border shadow-sm">
-        <View className="flex-row items-center justify-between px-6 py-4">
-          <Text className="text-2xl font-black text-foreground tracking-tighter">
-            {t('settings.title')}
-          </Text>
-        </View>
+      {/* Header */}
+      <View className="px-5 py-4 border-b border-border/40 bg-card">
+        <Text className="text-xl font-black text-foreground tracking-tight">
+          {t('settings.title') || 'Pengaturan'}
+        </Text>
       </View>
 
       <ScrollView
@@ -95,128 +120,160 @@ export function SettingsScreen() {
         className="flex-1 px-4 pt-4"
         contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
       >
-        {/* Profile Card */}
-        <Card className="mb-8 border-0 shadow-lg overflow-hidden rounded-[32px]">
-          <Pressable
-            className="p-6 flex-row items-center bg-primary active:opacity-90"
-            onPress={() => navigation.navigate('AccountDetail' as never)}
-          >
-            <View className="w-16 h-16 bg-white/20 rounded-2xl items-center justify-center mr-4 border border-white/30 overflow-hidden">
-              {user?.avatar ? (
-                <Image
-                  source={{ uri: user.avatar }}
-                  className="w-full h-full"
-                />
-              ) : (
-                <UserIcon size={32} color="#ffffff" />
-              )}
+        {/* User Profile Card */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('AccountDetail')}
+          className="bg-card border border-border/60 rounded-3xl p-5 mb-5 active:opacity-90 shadow-sm"
+        >
+          <View className="flex-row items-center gap-4">
+            <View className="w-14 h-14 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 items-center justify-center">
+              <UserIcon size={28} color="#10b981" />
             </View>
             <View className="flex-1">
-              <Text className="text-xl font-black text-white tracking-tight">
-                {user?.name || 'Admin User'}
+              <Text className="text-base font-black text-foreground">
+                {displayName}
               </Text>
-              <Text className="text-xs font-bold text-white/70 uppercase tracking-widest mt-0.5">
-                {displayRole}
+              <Text className="text-xs text-muted-foreground mt-0.5">
+                @{username}
               </Text>
+              <View className="flex-row items-center gap-2 mt-2">
+                <View className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex-row items-center gap-1">
+                  <Shield size={9} color="#10b981" />
+                  <Text className="text-[10px] font-bold text-emerald-500 uppercase">
+                    {roleName}
+                  </Text>
+                </View>
+                <View className="px-2 py-0.5 rounded-full bg-secondary/50 border border-border flex-row items-center gap-1">
+                  <Building2 size={9} color={colors.mutedForeground} />
+                  <Text className="text-[10px] font-bold text-muted-foreground">
+                    {branchName}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View className="bg-white/10 p-2 rounded-xl">
-              <ChevronRight size={18} color="#ffffff" />
+            <View className="w-8 h-8 rounded-full bg-secondary/40 items-center justify-center">
+              <ChevronRight size={16} color={colors.mutedForeground} />
             </View>
-          </Pressable>
-        </Card>
+          </View>
+        </TouchableOpacity>
 
-        <Text className="text-xs font-black text-muted-foreground uppercase tracking-[3px] mb-4 ml-1">
-          {t('settings.preferences')}
+        {/* Section: Preferensi */}
+        <Text className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 ml-2">
+          Preferensi Tampilan
         </Text>
-        <Card className="mb-8 overflow-hidden border border-border/50 bg-card rounded-3xl">
-          {/* Theme Selector */}
-          <Pressable
-            className="flex-row items-center justify-between p-5 border-b border-border/10 active:bg-secondary/20"
+        <View className="bg-card border border-border/60 rounded-3xl mb-5 overflow-hidden shadow-sm">
+          {/* Theme */}
+          <TouchableOpacity
             onPress={() => setShowThemeModal(true)}
+            className="flex-row items-center justify-between p-4 border-b border-border/30 active:bg-secondary/20"
           >
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 rounded-xl bg-blue-500/10 dark:bg-blue-400/20 items-center justify-center mr-4">
-                <Moon size={20} color={colors.blue} />
+            <View className="flex-row items-center gap-3">
+              <View className="w-9 h-9 rounded-xl bg-blue-500/15 items-center justify-center">
+                <Moon size={18} color="#3b82f6" />
               </View>
-              <Text className="text-foreground font-bold">
-                {t('settings.theme')}
-              </Text>
+              <Text className="text-sm font-bold text-foreground">Tema Aplikasi</Text>
             </View>
-            <View className="flex-row items-center">
-              <Text className="text-muted-foreground font-medium mr-2">
-                {themeLabel}
-              </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-xs text-muted-foreground font-medium">{themeLabel}</Text>
               <ChevronRight size={16} color={colors.mutedForeground} />
             </View>
-          </Pressable>
+          </TouchableOpacity>
 
-          {/* Language Selector */}
-          <Pressable
-            className="flex-row items-center justify-between p-5 active:bg-secondary/20"
+          {/* Language */}
+          <TouchableOpacity
             onPress={() => setShowLangModal(true)}
+            className="flex-row items-center justify-between p-4 active:bg-secondary/20"
           >
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 rounded-xl bg-indigo-500/10 dark:bg-indigo-400/20 items-center justify-center mr-4">
-                <Globe size={20} color={colors.indigo} />
+            <View className="flex-row items-center gap-3">
+              <View className="w-9 h-9 rounded-xl bg-purple-500/15 items-center justify-center">
+                <Globe size={18} color="#a855f7" />
               </View>
-              <Text className="text-foreground font-bold">
-                {t('settings.language')}
-              </Text>
+              <Text className="text-sm font-bold text-foreground">Bahasa</Text>
             </View>
-            <View className="flex-row items-center">
-              <Text className="text-muted-foreground font-medium mr-2">
-                {languageLabel}
-              </Text>
+            <View className="flex-row items-center gap-2">
+              <Text className="text-xs text-muted-foreground font-medium">{languageLabel}</Text>
               <ChevronRight size={16} color={colors.mutedForeground} />
             </View>
-          </Pressable>
-        </Card>
+          </TouchableOpacity>
+        </View>
 
-        <Text className="text-xs font-black text-muted-foreground uppercase tracking-[3px] mb-4 ml-1">
-          {t('settings.system') || 'System'}
+        {/* Section: Sistem & Koneksi */}
+        <Text className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2 ml-2">
+          Sistem & Koneksi
         </Text>
-        <Card className="mb-8 overflow-hidden border border-border/50 bg-card rounded-3xl">
-          <Pressable
-            className="flex-row items-center justify-between p-5 border-b border-border/10 active:bg-secondary/20"
+        <View className="bg-card border border-border/60 rounded-3xl mb-5 overflow-hidden shadow-sm">
+          {/* Updates */}
+          <TouchableOpacity
             onPress={() => checkForUpdates(true)}
             disabled={isChecking}
+            className="flex-row items-center justify-between p-4 border-b border-border/30 active:bg-secondary/20"
           >
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 rounded-xl bg-orange-500/10 dark:bg-orange-400/20 items-center justify-center mr-4">
-                <RefreshCw size={20} color="#f97316" />
+            <View className="flex-row items-center gap-3">
+              <View className="w-9 h-9 rounded-xl bg-emerald-500/15 items-center justify-center">
+                <RefreshCw size={18} color="#10b981" />
               </View>
-              <Text className="text-foreground font-bold">
-                {t('settings.checkUpdates') || 'Check for Updates'}
-              </Text>
+              <View>
+                <Text className="text-sm font-bold text-foreground">Pembaruan Aplikasi</Text>
+                <Text className="text-[10px] text-muted-foreground">
+                  Versi saat ini v{DeviceInfo.getVersion()}
+                </Text>
+              </View>
             </View>
-            <View className="flex-row items-center">
+            <View className="flex-row items-center gap-2">
               {isChecking ? (
-                <Loader2 size={16} color={colors.mutedForeground} />
+                <ActivityIndicator size="small" color="#10b981" />
               ) : (
-                <ChevronRight size={16} color={colors.mutedForeground} />
+                <View className="flex-row items-center gap-1.5">
+                  <Text className="text-xs text-emerald-500 font-bold">Periksa</Text>
+                  <ChevronRight size={16} color={colors.mutedForeground} />
+                </View>
               )}
             </View>
-          </Pressable>
+          </TouchableOpacity>
 
-          <Pressable
-            className="flex-row items-center justify-between p-5 active:bg-destructive/10"
-            onPress={logout}
+          {/* Server & Tenant Config */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ServerConfiguration')}
+            className="flex-row items-center justify-between p-4 active:bg-secondary/20"
           >
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 rounded-xl bg-destructive/10 items-center justify-center mr-4">
-                <LogOut size={20} color={colors.destructive} />
+            <View className="flex-row items-center gap-3">
+              <View className="w-9 h-9 rounded-xl bg-amber-500/15 items-center justify-center">
+                <Server size={18} color="#f59e0b" />
               </View>
-              <Text className="text-foreground font-black">
-                {t('element.logout')}
-              </Text>
+              <View>
+                <Text className="text-sm font-bold text-foreground">Server & Database Tenant</Text>
+                <Text className="text-[10px] text-muted-foreground font-mono" numberOfLines={1}>
+                  {activeDatabase} • {serverUrl}
+                </Text>
+              </View>
             </View>
-          </Pressable>
-        </Card>
+            <ChevronRight size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </View>
 
-        <View className="items-center mt-4">
-          <Logo width={48} height={48} opacity={0.3} />
-          <Text className="text-[10px] font-black text-muted-foreground uppercase tracking-[2px] mt-4 opacity-50">
-            {t('settings.version')} {DeviceInfo.getVersion()}
+        {/* Section: Sesi & Logout */}
+        <View className="bg-card border border-border/60 rounded-3xl mb-6 overflow-hidden shadow-sm">
+          <TouchableOpacity
+            onPress={handleLogout}
+            className="flex-row items-center justify-between p-4 active:bg-rose-500/10"
+          >
+            <View className="flex-row items-center gap-3">
+              <View className="w-9 h-9 rounded-xl bg-rose-500/15 items-center justify-center">
+                <LogOut size={18} color="#ef4444" />
+              </View>
+              <Text className="text-sm font-bold text-rose-500">Keluar dari Akun</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Brand Footer */}
+        <View className="items-center mt-2 mb-6">
+          <Logo width={36} height={36} opacity={0.3} />
+          <Text className="text-[11px] font-bold text-muted-foreground mt-2 opacity-60">
+            Grocy Mobile v{DeviceInfo.getVersion()}
+          </Text>
+          <Text className="text-[10px] text-muted-foreground opacity-40 mt-0.5">
+            Point of Sale & Attendance Engine
           </Text>
         </View>
       </ScrollView>
@@ -228,23 +285,19 @@ export function SettingsScreen() {
         animationType="fade"
         onRequestClose={() => setShowThemeModal(false)}
       >
-        <Pressable
-          className="flex-1 bg-black/50 justify-center px-6"
+        <TouchableOpacity
+          className="flex-1 bg-black/60 justify-center px-6"
+          activeOpacity={1}
           onPress={() => setShowThemeModal(false)}
         >
-          <Pressable
-            className="bg-card rounded-[32px] overflow-hidden border border-border/50"
-            onPress={e => e.stopPropagation()}
-          >
-            <View className="p-6 border-b border-border/10">
-              <Text className="text-lg font-black text-foreground tracking-tight">
-                {t('settings.selectThemeTitle')}
-              </Text>
+          <View className="bg-card rounded-3xl overflow-hidden border border-border shadow-2xl">
+            <View className="p-5 border-b border-border/40">
+              <Text className="text-base font-black text-foreground">Pilih Tema Aplikasi</Text>
             </View>
             {themes.map(theme => (
-              <Pressable
+              <TouchableOpacity
                 key={theme.value}
-                className="p-5 border-b border-border/5 flex-row items-center justify-between active:bg-secondary/20"
+                className="p-4 border-b border-border/20 flex-row items-center justify-between active:bg-secondary/20"
                 onPress={async () => {
                   const val = theme.value as 'light' | 'dark' | 'system';
                   setThemePreference(val);
@@ -253,16 +306,14 @@ export function SettingsScreen() {
                   setShowThemeModal(false);
                 }}
               >
-                <Text className="text-base text-foreground font-bold">
-                  {theme.label}
-                </Text>
+                <Text className="text-sm text-foreground font-bold">{theme.label}</Text>
                 {themePreference === theme.value && (
-                  <Check size={20} color={colors.primary} strokeWidth={3} />
+                  <Check size={18} color="#10b981" strokeWidth={3} />
                 )}
-              </Pressable>
+              </TouchableOpacity>
             ))}
-          </Pressable>
-        </Pressable>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Language Modal */}
@@ -272,38 +323,32 @@ export function SettingsScreen() {
         animationType="fade"
         onRequestClose={() => setShowLangModal(false)}
       >
-        <Pressable
-          className="flex-1 bg-black/50 justify-center px-6"
+        <TouchableOpacity
+          className="flex-1 bg-black/60 justify-center px-6"
+          activeOpacity={1}
           onPress={() => setShowLangModal(false)}
         >
-          <Pressable
-            className="bg-card rounded-[32px] overflow-hidden border border-border/50"
-            onPress={e => e.stopPropagation()}
-          >
-            <View className="p-6 border-b border-border/10">
-              <Text className="text-lg font-black text-foreground tracking-tight">
-                {t('settings.language')}
-              </Text>
+          <View className="bg-card rounded-3xl overflow-hidden border border-border shadow-2xl">
+            <View className="p-5 border-b border-border/40">
+              <Text className="text-base font-black text-foreground">Pilih Bahasa</Text>
             </View>
             {languages.map(lang => (
-              <Pressable
+              <TouchableOpacity
                 key={lang.value}
-                className="p-5 border-b border-border/5 flex-row items-center justify-between active:bg-secondary/20"
+                className="p-4 border-b border-border/20 flex-row items-center justify-between active:bg-secondary/20"
                 onPress={() => {
                   i18n.changeLanguage(lang.value);
                   setShowLangModal(false);
                 }}
               >
-                <Text className="text-base text-foreground font-bold">
-                  {lang.label}
-                </Text>
+                <Text className="text-sm text-foreground font-bold">{lang.label}</Text>
                 {currentLanguage === lang.value && (
-                  <Check size={20} color={colors.primary} strokeWidth={3} />
+                  <Check size={18} color="#10b981" strokeWidth={3} />
                 )}
-              </Pressable>
+              </TouchableOpacity>
             ))}
-          </Pressable>
-        </Pressable>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

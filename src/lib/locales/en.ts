@@ -162,6 +162,8 @@ export default {
   },
   navigate: {
     home: 'Home',
+    pos: 'POS',
+    attendance: 'Attendance',
     settings: 'Settings',
   },
   settings: {

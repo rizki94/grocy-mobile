@@ -1,7 +1,7 @@
 import './global.css';
 import './src/lib/i18n';
 import React, { useEffect } from 'react';
-import { View, StatusBar, useColorScheme as useRNColorScheme } from 'react-native';
+import { View, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -26,29 +26,10 @@ import { UpdateModal } from './src/components/update-modal';
 import { LoginScreen } from './src/screens/auth/login-screen';
 import { SplashScreen } from './src/screens/splash-screen';
 import { MainTabNavigator } from './src/navigators/main-tab-navigator';
-import { StockOpnameScreen } from './src/screens/main/stock-opname-screen';
 import { AccountScreen } from './src/screens/main/account-screen';
-import { ProfitScreen } from './src/screens/sales/profit-screen';
-import { SalesApproveScreen } from './src/screens/sales/sales-approve-screen';
-import { ApproveDetailScreen } from './src/screens/sales/approve-detail-screen';
-import { CancelTransactionScreen } from './src/screens/sales/cancel-transaction-screen';
-import { SalesReportScreen } from './src/screens/sales/sales-report-screen';
-import { PurchaseScreen } from './src/screens/purchase/purchase-screen';
-import { PriceRequestApproveScreen } from './src/screens/purchase/price-request-approve-screen';
-import { SalesReturnScreen } from './src/screens/sales/sales-return-screen';
-import { DebtPaymentsScreen } from './src/screens/payment/debt-payments-screen';
-import { CreditPaymentsScreen } from './src/screens/payment/credit-payments-screen';
-import { PelunasanPiutangScreen } from './src/screens/payment/pelunasan-piutang-screen';
-import { PelunasanHutangScreen } from './src/screens/payment/pelunasan-hutang-screen';
-import { ServerConfigurationScreen } from './src/screens/auth/server-configuration-screen';
-import { StockOpnameListScreen } from './src/screens/main/stock-opname-list-screen';
 import { AttendanceScreen } from './src/screens/main/attendance-screen';
-import { VisitReportScreen } from './src/screens/main/visit-report-screen';
-import { AttendanceRouteScreen } from './src/screens/main/attendance-route-screen';
-import { ProductsScreen } from './src/screens/main/products-screen';
-import { SalesOrderScreen } from './src/screens/sales/sales-order-screen';
 import { POSScreen } from './src/screens/main/pos-screen';
-import { ResiScanScreen } from './src/screens/main/resi-scan-screen';
+import { ServerConfigurationScreen } from './src/screens/auth/server-configuration-screen';
 import { useFcm } from './src/hooks/use-fcm';
 import { navigationRef } from './src/lib/navigation';
 
@@ -69,10 +50,8 @@ export default function App() {
     const initTheme = async () => {
       const pref = await AsyncStorage.getItem('user-theme-preference');
       const targetTheme = pref || 'system';
-      
+
       if (targetTheme === 'system') {
-        // Resolve system theme manually and set an EXPLICIT scheme in NativeWind
-        // This is often more stable on Android than letting NativeWind handle 'system'
         setColorScheme(systemScheme === 'dark' ? 'dark' : 'light');
       } else {
         setColorScheme(targetTheme as any);
@@ -81,7 +60,7 @@ export default function App() {
     };
 
     initTheme();
-  }, [systemScheme]); // Re-run if system scheme changes to keep 'system' preference in sync
+  }, [systemScheme]);
 
   if (!isThemeReady) {
     return <SplashScreen />;
@@ -102,81 +81,18 @@ export default function App() {
                       <>
                         <Stack.Screen name="Main" component={MainTabNavigator} />
                         <Stack.Screen
-                          name="StockOpnameDetail"
-                          component={StockOpnameScreen}
-                        />
-                        <Stack.Screen
                           name="AccountDetail"
                           component={AccountScreen}
                         />
                         <Stack.Screen
-                          name="StockOpnameList"
-                          component={StockOpnameListScreen}
-                        />
-                        <Stack.Screen name="Profit" component={ProfitScreen} />
-                        <Stack.Screen
-                          name="SalesApprove"
-                          component={SalesApproveScreen}
-                        />
-                        <Stack.Screen
-                          name="ApproveDetail"
-                          component={ApproveDetailScreen}
-                        />
-                        <Stack.Screen
-                          name="CancelTransaction"
-                          component={CancelTransactionScreen}
-                        />
-                        <Stack.Screen
-                          name="SalesReport"
-                          component={SalesReportScreen}
-                        />
-                        <Stack.Screen name="Purchase" component={PurchaseScreen} />
-                        <Stack.Screen
-                          name="PriceRequestApprove"
-                          component={PriceRequestApproveScreen}
-                        />
-                        <Stack.Screen
-                          name="SalesReturn"
-                          component={SalesReturnScreen}
-                        />
-                        <Stack.Screen
-                          name="SalesOrder"
-                          component={SalesOrderScreen}
-                        />
-                        <Stack.Screen
-                          name="DebtPayments"
-                          component={DebtPaymentsScreen}
-                        />
-                        <Stack.Screen
-                          name="CreditPayments"
-                          component={CreditPaymentsScreen}
-                        />
-                        <Stack.Screen
-                          name="PelunasanPiutang"
-                          component={PelunasanPiutangScreen}
-                        />
-                        <Stack.Screen
-                          name="PelunasanHutang"
-                          component={PelunasanHutangScreen}
+                          name="ServerConfiguration"
+                          component={ServerConfigurationScreen}
                         />
                         <Stack.Screen
                           name="Attendance"
                           component={AttendanceScreen}
                         />
-                        <Stack.Screen
-                          name="VisitReport"
-                          component={VisitReportScreen}
-                        />
-                        <Stack.Screen
-                          name="AttendanceRoute"
-                          component={AttendanceRouteScreen}
-                        />
-                        <Stack.Screen name="Products" component={ProductsScreen} />
                         <Stack.Screen name="POS" component={POSScreen} />
-                        <Stack.Screen
-                          name="ResiScan"
-                          component={ResiScanScreen}
-                        />
                       </>
                     ) : (
                       <>

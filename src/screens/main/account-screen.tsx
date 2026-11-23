@@ -1,266 +1,256 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   View,
-  ScrollView,
-  ToastAndroid,
-  Image,
-  TouchableOpacity,
   Text,
-  Modal,
-  Pressable,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  ToastAndroid,
+  Platform,
 } from 'react-native';
 import { AppLayout } from '../../components/layout/app-layout';
-import { Input } from '../../components/ui/input';
-import { Button } from '../../components/ui/button';
-import { UserContext, AuthContext } from '../../contexts/app-context';
-import { useFetchWithParams } from '../../hooks/use-fetch';
+import { UserContext, AuthContext, ConnectionContext } from '../../contexts/app-context';
 import { useConnection } from '../../hooks/use-connection';
 import { useTranslation } from 'react-i18next';
-import { Camera, User, Image as ImageIcon, X } from 'lucide-react-native';
+import {
+  User as UserIcon,
+  Lock,
+  Eye,
+  EyeOff,
+  Shield,
+  Building2,
+  Database,
+  CheckCircle2,
+} from 'lucide-react-native';
 import { useThemeColor } from '../../lib/colors';
-import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
 export function AccountScreen() {
   const { t } = useTranslation();
   const user = useContext(UserContext);
-  const { refresh } = useContext(AuthContext);
+  const connection = useContext(ConnectionContext);
   const colors = useThemeColor();
   const { apiClient } = useConnection();
-  const [refreshing, setRefreshing] = useState(false);
-  const [buttonLoading, setButtonLoading] = useState(false);
-  const [showImagePickerModal, setShowImagePickerModal] = useState(false);
 
-  const [data, setData] = useState({
-    name: '',
-    full_name: '',
-    password: '',
-    confirm_password: '',
-  });
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const [avatar, setAvatar] = useState<any>(null);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const { data: userData, isLoading } = useFetchWithParams(
-    'api/user/show',
-    { params: { id: user?.id } },
-    user,
-    refreshing,
-  );
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // console.log('AccountScreen userData:', userData);
-    // console.log('AccountScreen context user:', user);
+  const displayName = user?.displayName || user?.name || user?.username || 'User';
+  const username = user?.username || user?.name || '-';
+  const roleName = user?.role_name || user?.role || 'Staff';
+  const branchName = user?.branchName || user?.branchCode || 'Pusat';
+  const activeDatabase = connection?.database || 'grocy_app';
 
-    if (userData || user) {
-      const actualData = userData?.data || userData?.user || (Array.isArray(userData) ? null : userData) || user;
-
-      if (actualData && typeof actualData === 'object' && !Array.isArray(actualData)) {
-        // console.log('AccountScreen setting data from:', actualData);
-        setData(prev => ({
-          ...prev,
-          name: actualData.name || actualData.username || prev.name || '',
-          full_name: actualData.full_name || actualData.fullname || prev.full_name || '',
-        }));
-
-        if (actualData.avatar) {
-          setAvatar({ uri: actualData.avatar });
-        } else if (actualData.avatar_img) {
-          // Fallback if avatar accessor not available
-          setAvatar({ uri: `${apiClient.defaults.baseURL}/uploads/avatar/${actualData.avatar_img}` });
-        }
-      }
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      notify('Masukkan kata sandi saat ini.', 'error');
+      return;
     }
-  }, [userData, user, apiClient.defaults.baseURL]);
-
-  const handleChange = (key: string, value: string) => {
-    setData(prev => ({ ...prev, [key]: value }));
-  };
-
-  const pickImage = async (useCamera: boolean) => {
-    const options: any = {
-      mediaType: 'photo',
-      quality: 0.7,
-    };
-
-    const result = useCamera
-      ? await launchCamera(options)
-      : await launchImageLibrary(options);
-
-    if (result.assets && result.assets.length > 0) {
-      setAvatar(result.assets[0]);
+    if (!newPassword || newPassword.length < 6) {
+      notify('Kata sandi baru minimal 6 karakter.', 'error');
+      return;
     }
-    setShowImagePickerModal(false);
-  };
+    if (newPassword !== confirmPassword) {
+      notify('Konfirmasi kata sandi baru tidak cocok.', 'error');
+      return;
+    }
 
-  const handleSubmit = async () => {
-    setButtonLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('name', data.name);
-      formData.append('full_name', data.full_name);
-      if (data.password) {
-        formData.append('password', data.password);
-        formData.append('confirm_password', data.confirm_password);
-      }
-
-      if (avatar && avatar.uri && !avatar.uri.startsWith('http')) {
-        // Only append if it's a new file (local URI)
-        formData.append('avatar', {
-          uri: avatar.uri,
-          type: avatar.type || 'image/jpeg',
-          name: avatar.fileName || avatar.name || `avatar_${Date.now()}.jpg`,
-        } as any);
-      }
-
-      const response = await apiClient.post('/api/bridge/change_password', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 30000, // 30 seconds timeout
+      setLoading(true);
+      const res = await apiClient.put(`/api/users/${user?.id}/change-password`, {
+        currentPassword,
+        newPassword,
       });
 
-      if (response.data.status === 200) {
-        ToastAndroid.show(
-          response.data.message || t('settings.account.updateSuccess'),
-          ToastAndroid.SHORT,
-        );
-        // Refresh local user data to show updated name/avatar immediately
-        try {
-          await refresh();
-        } catch (refreshErr) {
-          console.error('Failed to refresh user after update:', refreshErr);
-        }
-      } else if (response.data.status === 422) {
-        const errors = Object.values(response.data.validateErr || {});
-        errors.forEach((err: any) =>
-          ToastAndroid.show(err[0], ToastAndroid.SHORT),
-        );
+      if (res.status === 200) {
+        notify('Kata sandi berhasil diperbarui!', 'success');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
       } else {
-        ToastAndroid.show(
-          response.data.message || t('settings.account.updateError'),
-          ToastAndroid.SHORT,
-        );
+        notify(res.data?.message || 'Gagal mengubah kata sandi', 'error');
       }
-    } catch (e: any) {
-      console.error('Update account error:', e);
-      ToastAndroid.show(e.message || 'Network error', ToastAndroid.SHORT);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Gagal mengubah kata sandi';
+      notify(msg, 'error');
     } finally {
-      setButtonLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const notify = (msg: string, type: 'success' | 'error') => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(msg, ToastAndroid.LONG);
+    } else {
+      Alert.alert(type === 'success' ? 'Sukses' : 'Perhatian', msg);
     }
   };
 
   return (
-    <AppLayout title={t('settings.account.myAccount')} showBack>
-      <ScrollView className="flex-1 px-4" keyboardShouldPersistTaps="handled">
-        <View className="items-center py-6">
-          <TouchableOpacity
-            onPress={() => setShowImagePickerModal(true)}
-            className="relative"
-          >
-            <View className="w-24 h-24 rounded-full bg-secondary items-center justify-center overflow-hidden border-2 border-primary/20">
-              {avatar ? (
-                <Image source={{ uri: avatar.uri }} className="w-full h-full" />
-              ) : (
-                <User size={48} color={colors.mutedForeground} />
-              )}
-            </View>
-            <View className="absolute bottom-0 right-0 bg-primary p-2 rounded-full border-2 border-card">
-              <Camera size={16} color="white" />
-            </View>
-          </TouchableOpacity>
-          <Text className="mt-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-            {t('general.change')}
-          </Text>
-        </View>
-
-        <View className="gap-2 space-y-4 pt-4">
-          <Input
-            label={t('settings.account.name')}
-            value={data.name}
-            onChangeText={v => handleChange('name', v)}
-          />
-          <Input
-            label={t('settings.account.fullName')}
-            value={data.full_name}
-            onChangeText={v => handleChange('full_name', v)}
-          />
-
-          <View className="h-4" />
-          <Text className="text-xs font-black text-muted-foreground uppercase tracking-[2px] mb-2 px-1">
-            {t('settings.account.password')}
-          </Text>
-
-          <Input
-            label={t('settings.account.newPassword')}
-            value={data.password}
-            onChangeText={v => handleChange('password', v)}
-            secureTextEntry
-            placeholder={t('settings.account.minChars')}
-          />
-          <Input
-            label={t('settings.account.confirm_password')}
-            value={data.confirm_password}
-            onChangeText={v => handleChange('confirm_password', v)}
-            secureTextEntry
-            placeholder={t('settings.account.reenterPassword')}
-          />
-
-          <Button
-            label={
-              buttonLoading
-                ? t('serverConfig.saving')
-                : t('settings.account.saveChanges')
-            }
-            onPress={handleSubmit}
-            disabled={buttonLoading || isLoading}
-            className="mt-4 mb-10"
-          />
-        </View>
-      </ScrollView>
-
-      {/* Image Picker Modal */}
-      <Modal
-        visible={showImagePickerModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowImagePickerModal(false)}
+    <AppLayout title={t('settings.account.myAccount') || 'Akun Saya'} showBack>
+      <ScrollView
+        className="flex-1 px-4 py-4"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable
-          className="flex-1 bg-black/50 justify-end"
-          onPress={() => setShowImagePickerModal(false)}
-        >
-          <View className="bg-card rounded-t-[32px] p-6 pb-12">
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-xl font-black text-foreground tracking-tight">
-                {t('general.change')} Avatar
-              </Text>
-              <TouchableOpacity onPress={() => setShowImagePickerModal(false)}>
-                <X size={24} color={colors.foreground} />
-              </TouchableOpacity>
+        {/* Profile Card */}
+        <View className="bg-card border border-border/60 rounded-3xl p-5 mb-5 shadow-sm">
+          <View className="flex-row items-center gap-4">
+            <View className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 items-center justify-center">
+              <UserIcon size={32} color="#10b981" />
             </View>
+            <View className="flex-1">
+              <Text className="text-lg font-black text-foreground tracking-tight">
+                {displayName}
+              </Text>
+              <Text className="text-xs font-semibold text-muted-foreground mt-0.5">
+                @{username}
+              </Text>
+              <View className="flex-row items-center gap-2 mt-2 flex-wrap">
+                <View className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex-row items-center gap-1">
+                  <Shield size={10} color="#10b981" />
+                  <Text className="text-[10px] font-bold text-emerald-500 uppercase">
+                    {roleName}
+                  </Text>
+                </View>
+                <View className="px-2.5 py-0.5 rounded-full bg-secondary/50 border border-border flex-row items-center gap-1">
+                  <Building2 size={10} color={colors.mutedForeground} />
+                  <Text className="text-[10px] font-bold text-muted-foreground">
+                    {branchName}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
 
-            <View className="flex-row gap-4">
-              <TouchableOpacity
-                onPress={() => pickImage(true)}
-                className="flex-1 bg-secondary/30 p-6 rounded-2xl items-center"
-              >
-                <Camera size={32} color={colors.primary} />
-                <Text className="mt-2 font-bold text-foreground">
-                  {t('settings.account.openCamera')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => pickImage(false)}
-                className="flex-1 bg-secondary/30 p-6 rounded-2xl items-center"
-              >
-                <ImageIcon size={32} color={colors.primary} />
-                <Text className="mt-2 font-bold text-foreground">
-                  {t('settings.account.openImageLibrary')}
-                </Text>
+          {/* Database Info Bar */}
+          <View className="mt-4 pt-3 border-t border-border/40 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-1.5">
+              <Database size={13} color={colors.mutedForeground} />
+              <Text className="text-xs text-muted-foreground font-medium">Tenant Database</Text>
+            </View>
+            <Text className="text-xs font-mono font-bold text-emerald-500">{activeDatabase}</Text>
+          </View>
+        </View>
+
+        {/* Change Password Card */}
+        <View className="bg-card border border-border/60 rounded-3xl p-5 mb-8 shadow-sm">
+          <View className="flex-row items-center gap-2 mb-4">
+            <View className="w-8 h-8 rounded-xl bg-primary/10 items-center justify-center">
+              <Lock size={16} color="#10b981" />
+            </View>
+            <View>
+              <Text className="text-sm font-black text-foreground">
+                Ubah Kata Sandi
+              </Text>
+              <Text className="text-[11px] text-muted-foreground">
+                Pastikan menggunakan kata sandi yang kuat dan aman
+              </Text>
+            </View>
+          </View>
+
+          {/* Current Password Input */}
+          <View className="mb-3.5">
+            <Text className="text-xs font-bold text-foreground mb-1.5">
+              Kata Sandi Saat Ini
+            </Text>
+            <View className="flex-row items-center bg-secondary/30 border border-border rounded-xl px-3.5">
+              <TextInput
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry={!showCurrent}
+                placeholder="Masukkan kata sandi lama"
+                placeholderTextColor="#6b7280"
+                className="flex-1 py-3 text-sm text-foreground"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowCurrent(!showCurrent)} className="p-1">
+                {showCurrent ? (
+                  <EyeOff size={18} color="#9ca3af" />
+                ) : (
+                  <Eye size={18} color="#9ca3af" />
+                )}
               </TouchableOpacity>
             </View>
           </View>
-        </Pressable>
-      </Modal>
+
+          {/* New Password Input */}
+          <View className="mb-3.5">
+            <Text className="text-xs font-bold text-foreground mb-1.5">
+              Kata Sandi Baru (Min. 6 Karakter)
+            </Text>
+            <View className="flex-row items-center bg-secondary/30 border border-border rounded-xl px-3.5">
+              <TextInput
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry={!showNew}
+                placeholder="Masukkan kata sandi baru"
+                placeholderTextColor="#6b7280"
+                className="flex-1 py-3 text-sm text-foreground"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowNew(!showNew)} className="p-1">
+                {showNew ? (
+                  <EyeOff size={18} color="#9ca3af" />
+                ) : (
+                  <Eye size={18} color="#9ca3af" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Confirm Password Input */}
+          <View className="mb-5">
+            <Text className="text-xs font-bold text-foreground mb-1.5">
+              Konfirmasi Kata Sandi Baru
+            </Text>
+            <View className="flex-row items-center bg-secondary/30 border border-border rounded-xl px-3.5">
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirm}
+                placeholder="Ketik ulang kata sandi baru"
+                placeholderTextColor="#6b7280"
+                className="flex-1 py-3 text-sm text-foreground"
+                autoCapitalize="none"
+              />
+              <TouchableOpacity onPress={() => setShowConfirm(!showConfirm)} className="p-1">
+                {showConfirm ? (
+                  <EyeOff size={18} color="#9ca3af" />
+                ) : (
+                  <Eye size={18} color="#9ca3af" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            onPress={handleChangePassword}
+            disabled={loading}
+            className="w-full py-3.5 rounded-xl bg-emerald-600 active:bg-emerald-700 items-center justify-center flex-row gap-2"
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <CheckCircle2 size={16} color="#ffffff" />
+                <Text className="text-sm font-bold text-white">
+                  Simpan Kata Sandi
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </AppLayout>
   );
 }

@@ -162,6 +162,8 @@ export default {
   },
   navigate: {
     home: 'Home',
+    pos: 'Kasir',
+    attendance: 'Absensi',
     settings: 'Pengaturan',
   },
   settings: {
