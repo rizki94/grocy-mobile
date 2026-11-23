@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "release": "node scripts/publish-release.js",
+    "build:release": "cd android && gradlew.bat assembleRelease",
+    "release": "cd android && gradlew.bat assembleRelease && cd .. && node scripts/publish-release.js",
     "publish:release": "node scripts/publish-release.js"
   },
   "dependencies": {
