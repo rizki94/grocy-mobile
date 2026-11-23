@@ -19,11 +19,30 @@ export function MainTabNavigator() {
   const insets = useSafeAreaInsets();
   const user = useContext(UserContext);
 
-  const initialRoute = user?.isPinSession ? 'POS' : 'SalesReportTab';
+  // If cashier authenticated via PIN: STRICTLY POS ONLY (no access to Admin Reports, Attendance, or Settings)
+  if (user?.isPinSession) {
+    return (
+      <Tab.Navigator
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: { display: 'none' },
+        }}
+      >
+        <Tab.Screen
+          name="POS"
+          component={POSScreen}
+          options={{
+            tabBarStyle: { display: 'none' },
+          }}
+        />
+      </Tab.Navigator>
+    );
+  }
 
+  // Admin / Manager with Password: Full management suite with Sales Report as initial tab
   return (
     <Tab.Navigator
-      initialRouteName={initialRoute}
+      initialRouteName="SalesReportTab"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
