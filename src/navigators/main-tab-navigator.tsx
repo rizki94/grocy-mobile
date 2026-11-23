@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, Text, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { POSScreen } from '../screens/main/pos-screen';
@@ -8,6 +8,7 @@ import { ShoppingCart, Clock, Settings } from 'lucide-react-native';
 import { useAppTheme } from '../hooks/use-app-theme';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { UserContext } from '../contexts/app-context';
 
 const Tab = createBottomTabNavigator();
 
@@ -15,10 +16,13 @@ export function MainTabNavigator() {
   const { t } = useTranslation();
   const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
+  const user = useContext(UserContext);
+
+  const initialRoute = user?.isPinSession ? 'POS' : 'AttendanceTab';
 
   return (
     <Tab.Navigator
-      initialRouteName="AttendanceTab"
+      initialRouteName={initialRoute}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

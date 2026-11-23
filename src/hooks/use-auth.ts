@@ -82,7 +82,7 @@ export function useAuth() {
 
           if (response.data && response.data.status === 200) {
             const data = response.data;
-            console.log(data)
+            console.log(data);
             // Explicitly map attributes to ensure they are preserved
             const user = {
               ...(data.user || {}),
@@ -92,6 +92,7 @@ export function useAuth() {
               role_name: data.user?.role_name,
               group_name: data.user?.group_name,
               avatar: data.user?.avatar,
+              isPinSession: false,
             };
 
             // console.log('Storing user:', user);
@@ -107,6 +108,46 @@ export function useAuth() {
             showToast(e.message || 'An error occurred');
           }
           throw e; // Important for callers to handle
+        }
+      },
+      loginWithPin: async (pin: string) => {
+        try {
+          const payload = { pin: pin.trim() };
+          let response;
+          try {
+            response = await apiClient.post('api/auth/login-pin', payload);
+          } catch (firstErr: any) {
+            if (firstErr.response?.status === 404) {
+              response = await apiClient.post('api/login_pin', payload);
+            } else {
+              throw firstErr;
+            }
+          }
+
+          if (response.data && response.data.status === 200) {
+            const data = response.data;
+            const user = {
+              ...(data.user || {}),
+              token: data.token,
+              permission: data.permission,
+              role_name: data.user?.role_name,
+              group_name: data.user?.group_name,
+              avatar: data.user?.avatar,
+              isPinSession: true,
+            };
+
+            await storeUser(user);
+            dispatch({ type: 'SET_USER', payload: user });
+            return user;
+          } else {
+            const message = response.data?.message || 'PIN kasir tidak valid';
+            showToast(message);
+            throw new Error(message);
+          }
+        } catch (e: any) {
+          const errMsg = e.response?.data?.message || e.message || 'Gagal login PIN';
+          showToast(errMsg);
+          throw new Error(errMsg);
         }
       },
       logout: async () => {

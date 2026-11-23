@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useContext } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Vibration,
   ToastAndroid,
   StyleSheet,
+  Share,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -39,6 +40,10 @@ import {
   ChevronDown,
   Camera as CameraIcon,
   Zap,
+  Printer,
+  Share2,
+  Scale,
+  Wallet,
 } from 'lucide-react-native';
 import {
   Camera,
@@ -50,6 +55,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useConnection } from '../../hooks/use-connection';
+import { AuthContext, UserContext } from '../../contexts/app-context';
 import { useThemeColor } from '../../lib/colors';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -111,6 +117,8 @@ export function POSScreen() {
   const colors = useThemeColor();
   const insets = useSafeAreaInsets();
   const { apiClient, database } = useConnection();
+  const { logout } = useContext(AuthContext);
+  const user = useContext(UserContext);
 
   // Session state
   const [session, setSession] = useState<any>(null);
@@ -119,6 +127,8 @@ export function POSScreen() {
   const [isClosingSession, setIsClosingSession] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closingCashActual, setClosingCashActual] = useState('');
+  const [sessionSummary, setSessionSummary] = useState<any>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   // Products & Cart
   const [products, setProducts] = useState<Product[]>([]);
@@ -275,6 +285,25 @@ export function POSScreen() {
     }
   };
 
+  // Open Close Session Modal & Fetch Summary
+  const handleOpenCloseModal = async () => {
+    if (!session) return;
+    setShowCloseModal(true);
+    setIsLoadingSummary(true);
+    setClosingCashActual('');
+    setSessionSummary(null);
+    try {
+      const res = await apiClient.get(`/api/pos-sessions/${session.id}/summary`);
+      if (res.data) {
+        setSessionSummary(res.data);
+      }
+    } catch (e: any) {
+      console.warn('Failed to get session summary:', e);
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
   // Close Session
   const handleCloseSession = async () => {
     if (!session) return;
@@ -287,11 +316,62 @@ export function POSScreen() {
       setShowCloseModal(false);
       setSession(null);
       setCart([]);
+      setSessionSummary(null);
       showToast('Sesi kasir berhasil ditutup.');
+
+      // Automatically logout if logged in via PIN mode
+      if (user?.isPinSession) {
+        await logout();
+      }
     } catch (e: any) {
       Alert.alert('Gagal Tutup Sesi', e.response?.data?.message || 'Gagal menutup sesi kasir');
     } finally {
       setIsClosingSession(false);
+    }
+  };
+
+  // Share Receipt (58mm Thermal Print Layout)
+  const handleShareReceipt = async () => {
+    if (!lastReceipt) return;
+    try {
+      const lines = [
+        '================================',
+        '           GROCY STORE          ',
+        '================================',
+        `No Nota  : ${lastReceipt.invoice || '-'}`,
+        `Waktu    : ${moment(lastReceipt.date).format('DD/MM/YYYY HH:mm')}`,
+        `Kasir    : ${user?.displayName || user?.name || session?.userName || 'Kasir'}`,
+        `Pelanggan: ${customer?.name || 'Pelanggan Umum'}`,
+        '--------------------------------',
+      ];
+
+      (lastReceipt.items || []).forEach((it: CartItem) => {
+        lines.push(`${it.product.Name}`);
+        lines.push(
+          `  ${it.qty} x ${numberWithComma(it.price)} = Rp ${numberWithComma(it.qty * it.price)}`,
+        );
+      });
+
+      lines.push('--------------------------------');
+      lines.push(`Subtotal : Rp ${numberWithComma(lastReceipt.totals?.subtotal || 0)}`);
+      if (lastReceipt.totals?.totalDiscount > 0) {
+        lines.push(`Diskon   : Rp ${numberWithComma(lastReceipt.totals?.totalDiscount || 0)}`);
+      }
+      lines.push(`TOTAL    : Rp ${numberWithComma(lastReceipt.totals?.total || 0)}`);
+      lines.push(
+        `Bayar (${lastReceipt.paymentMethod}) : Rp ${numberWithComma(lastReceipt.totals?.numericPaid || 0)}`,
+      );
+      lines.push(`Kembali  : Rp ${numberWithComma(lastReceipt.totals?.change || 0)}`);
+      lines.push('================================');
+      lines.push(' Terima Kasih Atas Kunjungan Anda! ');
+      lines.push('================================');
+
+      await Share.share({
+        message: lines.join('\n'),
+        title: `Struk_${lastReceipt.invoice || 'POS'}`,
+      });
+    } catch (e: any) {
+      console.warn('Share receipt error:', e);
     }
   };
 
@@ -468,6 +548,7 @@ export function POSScreen() {
       setIsLoading(true);
       const payload = {
         posSessionId: session.id,
+        contactId: customer.id || null,
         customerId: customer.id || null,
         paymentMethod: selectedPaymentMethod,
         subtotal: cartTotals.subtotal,
@@ -476,14 +557,20 @@ export function POSScreen() {
         totalAmount: cartTotals.total,
         paidAmount: cartTotals.numericPaid || cartTotals.total,
         changeAmount: cartTotals.change,
+        payments: [
+          {
+            method: selectedPaymentMethod,
+            amount: cartTotals.numericPaid || cartTotals.total,
+          },
+        ],
         details: cart.map(item => ({
           productId: item.product.id,
           productDetailId: item.id,
           qty: item.qty,
           price: item.price,
-          discount: item.discount,
-          amount: item.qty * item.price - item.discount,
-          baseRatio: item.baseRatio,
+          discount: item.discount || 0,
+          amount: item.qty * item.price - (item.discount || 0),
+          baseRatio: item.baseRatio || 1,
         })),
       };
 
@@ -570,10 +657,18 @@ export function POSScreen() {
         />
 
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={async () => {
+            if (user?.isPinSession) {
+              await logout();
+            } else {
+              navigation.goBack();
+            }
+          }}
           className="mt-4 py-3 items-center"
         >
-          <Text className="text-xs font-bold text-muted-foreground">Kembali ke Dashboard</Text>
+          <Text className="text-xs font-bold text-muted-foreground">
+            {user?.isPinSession ? 'Keluar dari Kasir (Logout)' : 'Kembali ke Dashboard'}
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -593,7 +688,7 @@ export function POSScreen() {
           <View>
             <Text className="text-sm font-black text-foreground">Point of Sale (POS)</Text>
             <Text className="text-[10px] text-muted-foreground">
-              Kasir: {session.userName || 'Admin'} • Buka: {moment(session.openedAt).format('HH:mm')}
+              Kasir: {session.userName || user?.displayName || 'Admin'} • Buka: {moment(session.openedAt).format('HH:mm')}
             </Text>
           </View>
         </View>
@@ -619,7 +714,7 @@ export function POSScreen() {
 
           {/* Close Session Button */}
           <TouchableOpacity
-            onPress={() => setShowCloseModal(true)}
+            onPress={handleOpenCloseModal}
             className="p-2 rounded-xl bg-destructive/10 border border-destructive/20"
           >
             <DoorOpen size={16} color={colors.destructive} />
@@ -1114,11 +1209,23 @@ export function POSScreen() {
               </View>
             </View>
 
-            <Button
-              label="Transaksi Baru"
-              onPress={() => setShowReceiptModal(false)}
-              className="bg-emerald-600 active:bg-emerald-700 py-3.5 rounded-2xl"
-            />
+            <View className="gap-2">
+              <TouchableOpacity
+                onPress={handleShareReceipt}
+                className="flex-row items-center justify-center gap-2 p-3.5 rounded-2xl bg-secondary/30 border border-border active:bg-secondary/60"
+              >
+                <Printer size={16} color={colors.foreground} />
+                <Text className="text-xs font-bold text-foreground">
+                  Cetak / Bagikan Struk
+                </Text>
+              </TouchableOpacity>
+
+              <Button
+                label="Transaksi Baru"
+                onPress={() => setShowReceiptModal(false)}
+                className="bg-emerald-600 active:bg-emerald-700 py-3.5 rounded-2xl"
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -1160,25 +1267,175 @@ export function POSScreen() {
         </View>
       </Modal>
 
-      {/* Close Session Modal */}
+      {/* Close Session Modal with Shift Summary */}
       <Modal visible={showCloseModal} animationType="fade" transparent>
-        <View className="flex-1 justify-center items-center bg-black/75 p-6">
-          <View className="w-full max-w-sm bg-card border border-border rounded-3xl p-5">
-            <Text className="text-base font-black text-foreground mb-1">Tutup Sesi Kasir</Text>
-            <Text className="text-xs text-muted-foreground mb-4">
-              Hitung uang fisik di laci kasir dan masukkan totalnya di bawah.
-            </Text>
+        <View className="flex-1 justify-center items-center bg-black/80 p-4">
+          <View className="w-full max-w-sm bg-card border border-border rounded-3xl p-5 shadow-2xl max-h-[90%]">
+            <View className="flex-row items-center justify-between pb-3 border-b border-border mb-3">
+              <View>
+                <Text className="text-base font-black text-foreground">Ringkasan Sesi Kasir</Text>
+                <Text className="text-[10px] text-muted-foreground mt-0.5">
+                  Buka: {moment(session?.openedAt).format('DD/MM/YYYY HH:mm')}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowCloseModal(false)}
+                className="p-1.5 rounded-full bg-secondary/30"
+              >
+                <X size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
 
-            <TextInput
-              value={closingCashActual}
-              onChangeText={setClosingCashActual}
-              keyboardType="numeric"
-              placeholder="Total Kas Fisik di Laci"
-              placeholderTextColor={colors.mutedForeground}
-              className="p-3.5 rounded-xl bg-background border border-border text-foreground font-black text-base mb-4"
-            />
+            <ScrollView showsVerticalScrollIndicator={false} className="mb-3">
+              {isLoadingSummary ? (
+                <View className="py-8 items-center justify-center">
+                  <ActivityIndicator size="small" color="#10b981" />
+                  <Text className="text-xs text-muted-foreground mt-2 font-bold">
+                    Menghitung ringkasan kas masuk...
+                  </Text>
+                </View>
+              ) : (
+                <View className="gap-3">
+                  {/* Financial Breakdown Table */}
+                  <View className="p-3.5 rounded-2xl bg-background border border-border/70 gap-2">
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-xs text-muted-foreground">Modal Kas Awal</Text>
+                      <Text className="text-xs font-bold text-foreground">
+                        Rp {numberWithComma(session?.openingBalance || 0)}
+                      </Text>
+                    </View>
 
-            <View className="flex-row gap-2">
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-xs text-muted-foreground">Total Penjualan</Text>
+                      <Text className="text-xs font-bold text-foreground">
+                        Rp {numberWithComma(sessionSummary?.summary?.totalAmount || 0)}
+                        <Text className="text-[10px] text-muted-foreground">
+                          {' '}({sessionSummary?.summary?.count || 0} nota)
+                        </Text>
+                      </Text>
+                    </View>
+
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-xs text-muted-foreground">Kas Masuk Tunai</Text>
+                      <Text className="text-xs font-bold text-emerald-500">
+                        + Rp {numberWithComma(sessionSummary?.summary?.cashCollected || 0)}
+                      </Text>
+                    </View>
+
+                    {/* Non-cash payments breakdown */}
+                    {sessionSummary?.paymentBreakdown &&
+                      sessionSummary.paymentBreakdown
+                        .filter((p: any) => {
+                          const m = (p.method || '').toLowerCase();
+                          return !m.includes('cash') && !m.includes('tunai') && !m.includes('kas');
+                        })
+                        .map((p: any, idx: number) => (
+                          <View key={idx} className="flex-row justify-between items-center pl-2">
+                            <Text className="text-[11px] text-muted-foreground">↳ {p.method}</Text>
+                            <Text className="text-[11px] font-medium text-foreground">
+                              Rp {numberWithComma(p.total || 0)}
+                            </Text>
+                          </View>
+                        ))}
+
+                    {/* Total Settlements (pelunasan nota luar sesi) if any */}
+                    {Number(sessionSummary?.summary?.totalSettlements || 0) > 0 && (
+                      <View className="flex-row justify-between items-center">
+                        <Text className="text-xs text-muted-foreground">Pelunasan Piutang Kas</Text>
+                        <Text className="text-xs font-bold text-emerald-500">
+                          + Rp {numberWithComma(sessionSummary.summary.totalSettlements)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Expected Cash Drawer Box */}
+                  {(() => {
+                    const openingBal = Number(session?.openingBalance || 0);
+                    const cashCollected = Number(sessionSummary?.summary?.cashCollected || 0);
+                    const settlements = Number(sessionSummary?.summary?.totalSettlements || 0);
+                    const expectedCash = openingBal + cashCollected + settlements;
+                    const actualCash = parseFloat(closingCashActual.replace(/[^0-9]/g, '')) || 0;
+                    const diff = actualCash - expectedCash;
+
+                    return (
+                      <>
+                        <View className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex-row justify-between items-center">
+                          <View>
+                            <Text className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">
+                              TOTAL KAS DIHARAPKAN
+                            </Text>
+                            <Text className="text-[10px] text-muted-foreground">
+                              (Modal Awal + Kas Masuk Tunai)
+                            </Text>
+                          </View>
+                          <Text className="text-base font-black text-emerald-500">
+                            Rp {numberWithComma(expectedCash)}
+                          </Text>
+                        </View>
+
+                        {/* Actual Cash Input */}
+                        <View>
+                          <Text className="text-xs font-bold text-foreground mb-1.5">
+                            Hitung Kas Fisik Riil di Laci:
+                          </Text>
+                          <TextInput
+                            value={closingCashActual}
+                            onChangeText={setClosingCashActual}
+                            keyboardType="numeric"
+                            placeholder="Masukkan jumlah uang fisik di laci"
+                            placeholderTextColor={colors.mutedForeground}
+                            className="p-3.5 rounded-xl bg-background border border-border text-foreground font-black text-base"
+                          />
+                        </View>
+
+                        {/* Difference Indicator */}
+                        {closingCashActual.trim().length > 0 && (
+                          <View
+                            className={`p-3 rounded-xl border flex-row justify-between items-center ${
+                              diff === 0
+                                ? 'bg-emerald-500/10 border-emerald-500/30'
+                                : diff < 0
+                                ? 'bg-destructive/10 border-destructive/30'
+                                : 'bg-blue-500/10 border-blue-500/30'
+                            }`}
+                          >
+                            <Text
+                              className={`text-xs font-bold ${
+                                diff === 0
+                                  ? 'text-emerald-500'
+                                  : diff < 0
+                                  ? 'text-destructive'
+                                  : 'text-blue-500'
+                              }`}
+                            >
+                              {diff === 0
+                                ? '✓ Kas Pas (Sesuai)'
+                                : diff < 0
+                                ? '⚠ Selisih Kurang'
+                                : '+ Selisih Lebih'}
+                            </Text>
+                            <Text
+                              className={`text-xs font-black ${
+                                diff === 0
+                                  ? 'text-emerald-500'
+                                  : diff < 0
+                                  ? 'text-destructive'
+                                  : 'text-blue-500'
+                              }`}
+                            >
+                              Rp {numberWithComma(Math.abs(diff))}
+                            </Text>
+                          </View>
+                        )}
+                      </>
+                    );
+                  })()}
+                </View>
+              )}
+            </ScrollView>
+
+            <View className="flex-row gap-2 pt-2 border-t border-border">
               <TouchableOpacity
                 onPress={() => setShowCloseModal(false)}
                 className="flex-1 p-3.5 rounded-2xl bg-secondary/30 items-center"
@@ -1188,11 +1445,15 @@ export function POSScreen() {
               <TouchableOpacity
                 onPress={handleCloseSession}
                 disabled={isClosingSession}
-                className="flex-1 p-3.5 rounded-2xl bg-destructive items-center"
+                className="flex-1 p-3.5 rounded-2xl bg-destructive items-center justify-center"
               >
-                <Text className="text-xs font-bold text-white">
-                  {isClosingSession ? 'Menutup...' : 'Tutup Kasir'}
-                </Text>
+                {isClosingSession ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text className="text-xs font-bold text-white">
+                    Tutup Kasir
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
