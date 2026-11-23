@@ -60,11 +60,23 @@ export function useAuth() {
     () => ({
       login: async (name: string, password: string) => {
         try {
-          const response = await apiClient.post('api/login_native', {
+          const payload = {
             name,
             username: name,
             password,
-          });
+          };
+
+          let response;
+          try {
+            response = await apiClient.post('api/auth/login_native', payload);
+          } catch (firstErr: any) {
+            // If api/auth/login_native is not found, fallback to api/login_native
+            if (firstErr.response?.status === 404) {
+              response = await apiClient.post('api/login_native', payload);
+            } else {
+              throw firstErr;
+            }
+          }
 
           // console.log('Login Response:', response.data);
 
