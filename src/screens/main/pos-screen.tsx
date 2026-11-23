@@ -281,9 +281,8 @@ export function POSScreen() {
     const actualCash = parseFloat(closingCashActual.replace(/[^0-9]/g, '')) || 0;
     try {
       setIsClosingSession(true);
-      await apiClient.post('/api/pos-sessions/close', {
-        sessionId: session.id,
-        actualCash,
+      await apiClient.post(`/api/pos-sessions/${session.id}/close`, {
+        closingBalance: actualCash,
       });
       setShowCloseModal(false);
       setSession(null);
