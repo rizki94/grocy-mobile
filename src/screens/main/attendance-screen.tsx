@@ -10,6 +10,7 @@ import {
   PermissionsAndroid,
   Platform,
   TextInput,
+  Vibration,
 } from 'react-native';
 import { AppLayout } from '../../components/layout/app-layout';
 import { Card } from '../../components/ui/card';
@@ -161,6 +162,9 @@ export function AttendanceScreen({ navigation }: any) {
   };
 
   const handleKeyPress = (num: string) => {
+    try {
+      Vibration.vibrate(20);
+    } catch (_) {}
     if (pin.length < 4) {
       const newPin = pin + num;
       setPin(newPin);
@@ -171,6 +175,9 @@ export function AttendanceScreen({ navigation }: any) {
   };
 
   const handleDelete = () => {
+    try {
+      Vibration.vibrate(20);
+    } catch (_) {}
     setPin(prev => prev.slice(0, -1));
   };
 

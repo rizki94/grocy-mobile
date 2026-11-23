@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Share,
+  Vibration,
+  ToastAndroid,
+  StyleSheet,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import {
@@ -35,7 +37,15 @@ import {
   DoorOpen,
   DollarSign,
   ChevronDown,
+  Camera as CameraIcon,
+  Zap,
 } from 'lucide-react-native';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useCodeScanner,
+} from 'react-native-vision-camera';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -43,9 +53,8 @@ import { useConnection } from '../../hooks/use-connection';
 import { useThemeColor } from '../../lib/colors';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Loading } from '../../components/ui/loading';
 import { numberWithComma } from '../../utils/helpers';
+import { playBeepSuccess, playBeepError } from '../../utils/beep-sound';
 import moment from 'moment';
 
 interface Product {
@@ -54,6 +63,7 @@ interface Product {
   Category?: string;
   Stock?: number;
   barcode?: string;
+  skuId?: string;
   unit1?: string;
   unit2?: string;
   unit3?: string;
@@ -93,6 +103,7 @@ interface HeldBill {
 }
 
 const HELD_BILLS_STORAGE = '@pos_held_bills';
+const CACHED_PRODUCTS_STORAGE = '@pos_cached_products';
 
 export function POSScreen() {
   const { t } = useTranslation();
@@ -101,7 +112,7 @@ export function POSScreen() {
   const insets = useSafeAreaInsets();
   const { apiClient, database } = useConnection();
 
-  // State
+  // Session state
   const [session, setSession] = useState<any>(null);
   const [openingBalanceInput, setOpeningBalanceInput] = useState('0');
   const [isOpeningSession, setIsOpeningSession] = useState(false);
@@ -109,25 +120,32 @@ export function POSScreen() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closingCashActual, setClosingCashActual] = useState('');
 
+  // Products & Cart
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchText, setSearchText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isOfflineCatalog, setIsOfflineCatalog] = useState(false);
 
-  // Modals & Panels
+  // Modals
   const [showCartModal, setShowCartModal] = useState(false);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [lastReceipt, setLastReceipt] = useState<any>(null);
+
+  // Barcode Scanner Modal (Vision Camera)
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const cameraDevice = useCameraDevice('back');
+  const { hasPermission: hasCameraPerm, requestPermission: reqCameraPerm } = useCameraPermission();
+  const lastScannedTimeRef = useRef<number>(0);
 
   // Customer
   const [customer, setCustomer] = useState<{ id?: string; name: string }>({
     name: 'Pelanggan Umum',
   });
   const [showCustomerModal, setShowCustomerModal] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [customerList, setCustomerList] = useState<any[]>([]);
 
   // Held Bills
   const [heldBills, setHeldBills] = useState<HeldBill[]>([]);
@@ -140,6 +158,12 @@ export function POSScreen() {
 
   // View Mode
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  const showToast = (msg: string) => {
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(msg, ToastAndroid.SHORT);
+    }
+  };
 
   // Load Session & Initial Data
   const checkActiveSession = useCallback(async () => {
@@ -159,17 +183,42 @@ export function POSScreen() {
     }
   }, [apiClient]);
 
+  // Product Catalog Fetching with Offline Cache
   const fetchProducts = useCallback(async (query = '') => {
     try {
       setIsLoading(true);
       const res = await apiClient.get('/api/bridge/product_stock_list', {
-        params: { search: query, limit: 60 },
+        params: { search: query, limit: 100 },
       });
       if (res.data && res.data.data) {
         setProducts(res.data.data);
+        setIsOfflineCatalog(false);
+        // Cache to local storage if it's the full catalog query
+        if (!query) {
+          AsyncStorage.setItem(CACHED_PRODUCTS_STORAGE, JSON.stringify(res.data.data)).catch(() => {});
+        }
       }
     } catch (e) {
-      console.error('Fetch products error:', e);
+      console.warn('Fetch products online failed, checking offline cache...', e);
+      // Fallback to offline cache
+      try {
+        const cached = await AsyncStorage.getItem(CACHED_PRODUCTS_STORAGE);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const filtered = query
+            ? parsed.filter((p: Product) =>
+                p.Name.toLowerCase().includes(query.toLowerCase()) ||
+                p.barcode?.toLowerCase().includes(query.toLowerCase()) ||
+                p.skuId?.toLowerCase().includes(query.toLowerCase())
+              )
+            : parsed;
+          setProducts(filtered);
+          setIsOfflineCatalog(true);
+          showToast('Menggunakan katalog offline tersimpan');
+        }
+      } catch (cacheErr) {
+        console.error('Failed to read cached products:', cacheErr);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -217,7 +266,7 @@ export function POSScreen() {
       });
       if (res.data) {
         setSession(res.data);
-        Alert.alert('Sukses', 'Sesi kasir berhasil dibuka!');
+        showToast('Sesi kasir berhasil dibuka!');
       }
     } catch (e: any) {
       Alert.alert('Gagal Buka Sesi', e.response?.data?.message || 'Gagal membuka sesi kasir');
@@ -239,7 +288,7 @@ export function POSScreen() {
       setShowCloseModal(false);
       setSession(null);
       setCart([]);
-      Alert.alert('Sukses', 'Sesi kasir berhasil ditutup.');
+      showToast('Sesi kasir berhasil ditutup.');
     } catch (e: any) {
       Alert.alert('Gagal Tutup Sesi', e.response?.data?.message || 'Gagal menutup sesi kasir');
     } finally {
@@ -257,8 +306,12 @@ export function POSScreen() {
     return { subtotal, totalDiscount, total, numericPaid, change };
   }, [cart, paidAmount]);
 
-  // Add Item to Cart
+  // Add Item to Cart with Haptics
   const addToCart = (product: Product, level = 1) => {
+    try {
+      Vibration.vibrate(20);
+    } catch (_) {}
+
     const detailId = product[`id${level}`] || product.id;
     const unitName = product[`unit${level}`] || product.unit1 || 'Pcs';
     const price = product[`PriceA${level}`] || product.PriceA1 || 0;
@@ -288,6 +341,10 @@ export function POSScreen() {
   };
 
   const updateCartQty = (index: number, delta: number) => {
+    try {
+      Vibration.vibrate(15);
+    } catch (_) {}
+
     setCart(prev => {
       const next = [...prev];
       const newQty = next[index].qty + delta;
@@ -300,13 +357,69 @@ export function POSScreen() {
   };
 
   const removeCartItem = (index: number) => {
+    try {
+      Vibration.vibrate(25);
+    } catch (_) {}
     setCart(prev => prev.filter((_, i) => i !== index));
   };
+
+  // Barcode Scanner Handler
+  const handleOpenScanner = async () => {
+    if (!hasCameraPerm) {
+      const granted = await reqCameraPerm();
+      if (!granted) {
+        Alert.alert('Izin Kamera', 'Izin kamera dibutuhkan untuk memindai barcode produk.');
+        return;
+      }
+    }
+    setShowScannerModal(true);
+  };
+
+  const handleBarcodeScanned = useCallback((code: string) => {
+    const now = Date.now();
+    // Debounce barcode scan by 1.2 seconds to avoid rapid duplicate triggers
+    if (now - lastScannedTimeRef.current < 1200) {
+      return;
+    }
+    lastScannedTimeRef.current = now;
+
+    const cleanCode = code.trim();
+    // Search in current product catalog
+    const found = products.find(p =>
+      (p.barcode && p.barcode.trim() === cleanCode) ||
+      (p.skuId && p.skuId.trim() === cleanCode) ||
+      (p.id && p.id.toString() === cleanCode)
+    );
+
+    if (found) {
+      playBeepSuccess();
+      try {
+        Vibration.vibrate(30);
+      } catch (_) {}
+      addToCart(found, 1);
+      showToast(`${found.Name} (+1)`);
+    } else {
+      playBeepError();
+      try {
+        Vibration.vibrate(120);
+      } catch (_) {}
+      showToast(`Barcode ${cleanCode} tidak ditemukan`);
+    }
+  }, [products]);
+
+  const codeScanner = useCodeScanner({
+    codeTypes: ['ean-13', 'ean-8', 'code-128', 'code-39', 'qr', 'upc-a', 'upc-e'],
+    onCodeScanned: codes => {
+      if (codes && codes.length > 0 && codes[0].value) {
+        handleBarcodeScanned(codes[0].value);
+      }
+    },
+  });
 
   // Hold / Recall Bills
   const handleHoldBill = async () => {
     if (cart.length === 0) {
-      Alert.alert('Keranjang Kosong', 'Tidak ada item untuk ditahan.');
+      showToast('Keranjang kosong, tidak ada item untuk ditahan.');
       return;
     }
     const newHold: HeldBill = {
@@ -321,7 +434,7 @@ export function POSScreen() {
     await AsyncStorage.setItem(HELD_BILLS_STORAGE, JSON.stringify(updated));
     setCart([]);
     setCustomer({ name: 'Pelanggan Umum' });
-    Alert.alert('Sukses', 'Pesanan berhasil ditahan.');
+    showToast('Pesanan berhasil ditahan.');
   };
 
   const handleRecallBill = async (held: HeldBill) => {
@@ -377,6 +490,7 @@ export function POSScreen() {
 
       const res = await apiClient.post('/api/pos/checkout', payload);
       if (res.status === 201 || res.status === 200) {
+        playBeepSuccess();
         const receiptData = {
           invoice: res.data.invoice || `INV-${Date.now().toString().slice(-6)}`,
           date: new Date().toISOString(),
@@ -395,6 +509,7 @@ export function POSScreen() {
         setShowReceiptModal(true);
       }
     } catch (e: any) {
+      playBeepError();
       Alert.alert('Transaksi Gagal', e.response?.data?.message || 'Terjadi kesalahan sistem.');
     } finally {
       setIsLoading(false);
@@ -430,7 +545,7 @@ export function POSScreen() {
           </View>
           <Text className="text-2xl font-black text-foreground">Buka Sesi Kasir (POS)</Text>
           <Text className="text-xs text-muted-foreground mt-1 text-center">
-            Mulai sesi penjualan baru. Masukkan modal awal / kas laci kasir.
+            Mulai sesi penjualan baru. Masukkan modal kas awal laci kasir.
           </Text>
         </View>
 
@@ -485,6 +600,13 @@ export function POSScreen() {
         </View>
 
         <View className="flex-row items-center gap-2">
+          {/* Offline Badge */}
+          {isOfflineCatalog && (
+            <View className="px-2 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
+              <Text className="text-[10px] font-bold text-amber-500">Offline Cache</Text>
+            </View>
+          )}
+
           {/* Held Bills Badge */}
           {heldBills.length > 0 && (
             <TouchableOpacity
@@ -520,7 +642,7 @@ export function POSScreen() {
           <ChevronDown size={14} color={colors.mutedForeground} />
         </TouchableOpacity>
 
-        {/* Product Search Input */}
+        {/* Product Search Input + Barcode Scanner Button */}
         <View className="flex-row items-center gap-2">
           <View className="flex-1 flex-row items-center bg-card border border-border rounded-xl px-3 py-2">
             <Search size={16} color={colors.mutedForeground} />
@@ -530,7 +652,7 @@ export function POSScreen() {
                 setSearchText(text);
                 fetchProducts(text);
               }}
-              placeholder="Cari produk / scan barcode..."
+              placeholder="Cari produk / nama barang..."
               placeholderTextColor={colors.mutedForeground}
               className="flex-1 ml-2 text-foreground text-xs p-0"
             />
@@ -541,6 +663,15 @@ export function POSScreen() {
             ) : null}
           </View>
 
+          {/* Camera Barcode Scanner Button */}
+          <TouchableOpacity
+            onPress={handleOpenScanner}
+            className="p-2.5 rounded-xl bg-emerald-600 active:bg-emerald-700"
+          >
+            <Barcode size={18} color="#ffffff" />
+          </TouchableOpacity>
+
+          {/* Grid / List View Toggle */}
           <TouchableOpacity
             onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
             className="p-2.5 rounded-xl bg-card border border-border"
@@ -554,13 +685,17 @@ export function POSScreen() {
         </View>
       </View>
 
-      {/* Product Catalog Grid / List */}
+      {/* Product Catalog Grid / List with High-Performance Virtualization */}
       <FlatList
         data={products}
         keyExtractor={item => item.id}
         numColumns={viewMode === 'grid' ? 2 : 1}
         key={viewMode}
-        contentContainerStyle={{ padding: 12, paddingBottom: 100 }}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
+        contentContainerStyle={{ padding: 12, paddingBottom: 110 }}
         renderItem={({ item }) => {
           const inCartCount = cart
             .filter(c => c.product.id === item.id)
@@ -577,7 +712,7 @@ export function POSScreen() {
                     {item.Name}
                   </Text>
                   <Text className="text-[10px] text-muted-foreground mt-0.5">
-                    Stok: {item.Stock ?? 0} {item.unit1 || 'Pcs'}
+                    Stok: {item.Stock ?? 0} {item.unit1 || 'Pcs'} {item.barcode ? `• ${item.barcode}` : ''}
                   </Text>
                   <Text className="text-xs font-black text-emerald-500 mt-1">
                     Rp {numberWithComma(item.PriceA1 || 0)}
@@ -667,6 +802,71 @@ export function POSScreen() {
           </View>
         </View>
       )}
+
+      {/* Vision Camera Barcode Scanner Modal */}
+      <Modal visible={showScannerModal} animationType="slide" transparent>
+        <View className="flex-1 bg-black">
+          {cameraDevice ? (
+            <Camera
+              style={StyleSheet.absoluteFill}
+              device={cameraDevice}
+              isActive={showScannerModal}
+              codeScanner={codeScanner}
+              torch={torchOn ? 'on' : 'off'}
+            />
+          ) : (
+            <View className="flex-1 items-center justify-center">
+              <Text className="text-white text-sm">Kamera tidak tersedia</Text>
+            </View>
+          )}
+
+          {/* Scanner Overlay */}
+          <View className="flex-1 justify-between p-6" style={{ paddingTop: insets.top + 16 }}>
+            {/* Top Bar */}
+            <View className="flex-row items-center justify-between">
+              <TouchableOpacity
+                onPress={() => setShowScannerModal(false)}
+                className="w-10 h-10 rounded-full bg-black/60 items-center justify-center"
+              >
+                <X size={20} color="#ffffff" />
+              </TouchableOpacity>
+
+              <Text className="text-white font-bold text-sm bg-black/60 px-4 py-2 rounded-full">
+                Arahkan Kamera ke Barcode
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => setTorchOn(!torchOn)}
+                className={`w-10 h-10 rounded-full items-center justify-center ${
+                  torchOn ? 'bg-amber-500' : 'bg-black/60'
+                }`}
+              >
+                <Zap size={20} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Viewfinder Target Box */}
+            <View className="self-center w-72 h-44 rounded-3xl border-2 border-emerald-400 border-dashed bg-emerald-500/10 items-center justify-center">
+              <Text className="text-emerald-300 text-xs font-bold text-center px-4">
+                Pindai Barcode Produk (EAN-13, Code-128, QR)
+              </Text>
+            </View>
+
+            {/* Bottom Info Bar */}
+            <View className="bg-black/75 p-4 rounded-2xl items-center">
+              <Text className="text-white text-xs font-bold">
+                Keranjang: {cart.reduce((s, c) => s + c.qty, 0)} Item (Rp {numberWithComma(cartTotals.total)})
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowScannerModal(false)}
+                className="mt-3 px-6 py-2 rounded-full bg-emerald-600"
+              >
+                <Text className="text-white text-xs font-bold">Selesai Scan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Cart Detail Modal */}
       <Modal visible={showCartModal} animationType="slide" transparent>
@@ -795,7 +995,10 @@ export function POSScreen() {
                   return (
                     <TouchableOpacity
                       key={m.id || m.name}
-                      onPress={() => setSelectedPaymentMethod(m.name)}
+                      onPress={() => {
+                        try { Vibration.vibrate(15); } catch (_) {}
+                        setSelectedPaymentMethod(m.name);
+                      }}
                       className={`px-4 py-2.5 rounded-xl border ${
                         isSelected
                           ? 'bg-emerald-600 border-emerald-600'
@@ -832,7 +1035,10 @@ export function POSScreen() {
                 {quickCashOptions.map(opt => (
                   <TouchableOpacity
                     key={opt.label}
-                    onPress={() => setPaidAmount(opt.value.toString())}
+                    onPress={() => {
+                      try { Vibration.vibrate(15); } catch (_) {}
+                      setPaidAmount(opt.value.toString());
+                    }}
                     className="px-3 py-1.5 rounded-lg bg-secondary/30 border border-border"
                   >
                     <Text className="text-xs font-bold text-foreground">{opt.label}</Text>

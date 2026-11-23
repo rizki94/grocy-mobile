@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useEffect, useState, useCallback } from 'react';
+import { Platform, ToastAndroid } from 'react-native';
 
 const DEFAULT_URL = 'http://[IP_ADDRESS]';
 const DEFAULT_DATABASE = 'grocy_app';
@@ -27,6 +28,28 @@ apiClient.interceptors.request.use(
     return config;
   },
   error => Promise.reject(error),
+);
+
+// Response Interceptor for auto-session expiration and user-friendly error messages
+apiClient.interceptors.response.use(
+  response => response,
+  async error => {
+    if (error.response?.status === 401) {
+      const requestUrl = error.config?.url || '';
+      // Don't auto-clear session on login / verify-pin endpoints
+      if (!requestUrl.includes('login') && !requestUrl.includes('verify-pin')) {
+        console.warn('[API] Sesi kedaluwarsa (401), membersihkan sesi lokal...');
+        await AsyncStorage.removeItem('@user');
+        if (Platform.OS === 'android') {
+          ToastAndroid.show(
+            'Sesi Anda telah berakhir. Silakan login kembali.',
+            ToastAndroid.LONG,
+          );
+        }
+      }
+    }
+    return Promise.reject(error);
+  },
 );
 
 export function useConnection() {
