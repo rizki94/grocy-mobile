@@ -208,17 +208,22 @@ export function LoginScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Mode Admin / Manajer (Collapsible) */}
+        {/* Mode Admin / Manajer (Wajib Password) */}
         <View className="border-t border-border/60 pt-4">
           <TouchableOpacity
             onPress={() => setShowAdminLogin(prev => !prev)}
-            className="flex-row items-center justify-between py-2 px-3 rounded-xl bg-secondary/30 active:bg-secondary/50 mb-3"
+            className="flex-row items-center justify-between py-2.5 px-3.5 rounded-2xl bg-secondary/30 active:bg-secondary/50 mb-3"
           >
-            <View className="flex-row items-center gap-2">
-              <Lock size={15} color={colors.mutedForeground} />
-              <Text className="text-xs font-bold text-muted-foreground">
-                Mode Admin / Manajer (Laporan & Setting)
-              </Text>
+            <View className="flex-row items-center gap-2.5">
+              <Lock size={15} color={colors.primary} />
+              <View>
+                <Text className="text-xs font-bold text-foreground">
+                  Login Admin / Manajer
+                </Text>
+                <Text className="text-[10px] text-muted-foreground">
+                  Wajib kata sandi • Laporan sales & setting
+                </Text>
+              </View>
             </View>
             {showAdminLogin ? (
               <ChevronUp size={16} color={colors.mutedForeground} />
