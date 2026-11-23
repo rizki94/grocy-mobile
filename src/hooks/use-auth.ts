@@ -62,6 +62,7 @@ export function useAuth() {
         try {
           const response = await apiClient.post('api/login_native', {
             name,
+            username: name,
             password,
           });
 
