@@ -44,6 +44,8 @@ import {
   Share2,
   Scale,
   Wallet,
+  Store,
+  LogOut,
 } from 'lucide-react-native';
 import {
   Camera,
@@ -319,10 +321,8 @@ export function POSScreen() {
       setSessionSummary(null);
       showToast('Sesi kasir berhasil ditutup.');
 
-      // Automatically logout if logged in via PIN mode
-      if (user?.isPinSession) {
-        await logout();
-      }
+      // Always logout after closing session to return to initial login screen
+      await logout();
     } catch (e: any) {
       Alert.alert('Gagal Tutup Sesi', e.response?.data?.message || 'Gagal menutup sesi kasir');
     } finally {
@@ -658,16 +658,13 @@ export function POSScreen() {
 
         <TouchableOpacity
           onPress={async () => {
-            if (user?.isPinSession) {
-              await logout();
-            } else {
-              navigation.goBack();
-            }
+            await logout();
           }}
-          className="mt-4 py-3 items-center"
+          className="mt-4 py-3 items-center flex-row justify-center gap-1.5"
         >
+          <LogOut size={15} color={colors.mutedForeground} />
           <Text className="text-xs font-bold text-muted-foreground">
-            {user?.isPinSession ? 'Keluar dari Kasir (Logout)' : 'Kembali ke Dashboard'}
+            Kembali ke Tampilan Awal
           </Text>
         </TouchableOpacity>
       </View>
@@ -678,17 +675,14 @@ export function POSScreen() {
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       {/* Header Bar */}
       <View className="px-4 py-3 bg-card border-b border-border flex-row items-center justify-between">
-        <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            className="p-2 rounded-xl bg-secondary/30"
-          >
-            <ArrowLeft size={18} color={colors.foreground} />
-          </TouchableOpacity>
+        <View className="flex-row items-center gap-2.5">
+          <View className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 items-center justify-center">
+            <Store size={18} color="#10b981" />
+          </View>
           <View>
             <Text className="text-sm font-black text-foreground">Point of Sale (POS)</Text>
             <Text className="text-[10px] text-muted-foreground">
-              Kasir: {session.userName || user?.displayName || 'Admin'} • Buka: {moment(session.openedAt).format('HH:mm')}
+              Kasir: {session.userName || user?.displayName || 'Kasir'} • Buka: {moment(session.openedAt).format('HH:mm')}
             </Text>
           </View>
         </View>

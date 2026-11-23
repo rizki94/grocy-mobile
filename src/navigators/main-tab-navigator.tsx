@@ -1,15 +1,11 @@
-import React, { useContext } from 'react';
-import { View, Text, Platform } from 'react-native';
+import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AdminSalesReportScreen } from '../screens/main/admin-sales-report-screen';
-import { POSScreen } from '../screens/main/pos-screen';
-import { AttendanceScreen } from '../screens/main/attendance-screen';
 import { SettingsScreen } from '../screens/main/settings-screen';
-import { ShoppingCart, Clock, Settings, TrendingUp } from 'lucide-react-native';
+import { Settings, TrendingUp } from 'lucide-react-native';
 import { useAppTheme } from '../hooks/use-app-theme';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { UserContext } from '../contexts/app-context';
 
 const Tab = createBottomTabNavigator();
 
@@ -17,29 +13,7 @@ export function MainTabNavigator() {
   const { t } = useTranslation();
   const { isDark } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const user = useContext(UserContext);
 
-  // If cashier authenticated via PIN: STRICTLY POS ONLY (no access to Admin Reports, Attendance, or Settings)
-  if (user?.isPinSession) {
-    return (
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: { display: 'none' },
-        }}
-      >
-        <Tab.Screen
-          name="POS"
-          component={POSScreen}
-          options={{
-            tabBarStyle: { display: 'none' },
-          }}
-        />
-      </Tab.Navigator>
-    );
-  }
-
-  // Admin / Manager with Password: Full management suite with Sales Report as initial tab
   return (
     <Tab.Navigator
       initialRouteName="SalesReportTab"
@@ -69,37 +43,6 @@ export function MainTabNavigator() {
           tabBarLabel: 'Penjualan',
           tabBarIcon: ({ color, size, focused }) => (
             <TrendingUp
-              size={focused ? size + 2 : size}
-              color={color}
-              strokeWidth={focused ? 2.5 : 2}
-            />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="POS"
-        component={POSScreen}
-        options={{
-          tabBarStyle: { display: 'none' }, // Hides the bottom navigation bar on POS!
-          tabBarLabel: t('navigate.pos') || 'Kasir',
-          tabBarIcon: ({ color, size, focused }) => (
-            <ShoppingCart
-              size={focused ? size + 2 : size}
-              color={color}
-              strokeWidth={focused ? 2.5 : 2}
-            />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="AttendanceTab"
-        component={AttendanceScreen}
-        options={{
-          tabBarLabel: t('navigate.attendance') || 'Absensi',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Clock
               size={focused ? size + 2 : size}
               color={color}
               strokeWidth={focused ? 2.5 : 2}

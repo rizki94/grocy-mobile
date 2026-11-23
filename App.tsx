@@ -78,22 +78,27 @@ export default function App() {
                     {state.loading ? (
                       <Stack.Screen name="Splash" component={SplashScreen} />
                     ) : state.user ? (
-                      <>
-                        <Stack.Screen name="Main" component={MainTabNavigator} />
-                        <Stack.Screen
-                          name="AccountDetail"
-                          component={AccountScreen}
-                        />
-                        <Stack.Screen
-                          name="ServerConfiguration"
-                          component={ServerConfigurationScreen}
-                        />
-                        <Stack.Screen
-                          name="Attendance"
-                          component={AttendanceScreen}
-                        />
-                        <Stack.Screen name="POS" component={POSScreen} />
-                      </>
+                      state.user.isPinSession ? (
+                        <>
+                          <Stack.Screen name="POS" component={POSScreen} />
+                          <Stack.Screen
+                            name="ServerConfiguration"
+                            component={ServerConfigurationScreen}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Stack.Screen name="Main" component={MainTabNavigator} />
+                          <Stack.Screen
+                            name="AccountDetail"
+                            component={AccountScreen}
+                          />
+                          <Stack.Screen
+                            name="ServerConfiguration"
+                            component={ServerConfigurationScreen}
+                          />
+                        </>
+                      )
                     ) : (
                       <>
                         <Stack.Screen name="Auth" component={LoginScreen} />
