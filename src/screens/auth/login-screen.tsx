@@ -107,6 +107,25 @@ export function LoginScreen({ navigation }: any) {
             onPress={handleLogin}
             disabled={loading}
           />
+
+          {/* Quick Employee Attendance (Kiosk / PIN Mode) */}
+          <View className="flex-row items-center my-3">
+            <View className="flex-1 h-[1px] bg-border" />
+            <Text className="mx-3 text-[11px] text-muted-foreground uppercase font-bold tracking-wider">
+              atau
+            </Text>
+            <View className="flex-1 h-[1px] bg-border" />
+          </View>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('AttendanceKiosk')}
+            className="flex-row items-center justify-center p-3.5 rounded-xl bg-primary/10 border border-primary/30 active:bg-primary/20"
+          >
+            <Text className="font-bold text-primary text-sm tracking-wide">
+              🕒 Absensi Karyawan (Mode PIN)
+            </Text>
+          </TouchableOpacity>
+
           <Button
             variant="outline"
             className="flex-row gap-2 mt-2"

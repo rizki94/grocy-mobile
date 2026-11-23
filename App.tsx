@@ -47,7 +47,7 @@ import { VisitReportScreen } from './src/screens/main/visit-report-screen';
 import { AttendanceRouteScreen } from './src/screens/main/attendance-route-screen';
 import { ProductsScreen } from './src/screens/main/products-screen';
 import { SalesOrderScreen } from './src/screens/sales/sales-order-screen';
-import { ChatDetailScreen } from './src/screens/chat/chat-detail-screen';
+import { POSScreen } from './src/screens/main/pos-screen';
 import { ResiScanScreen } from './src/screens/main/resi-scan-screen';
 import { useFcm } from './src/hooks/use-fcm';
 import { navigationRef } from './src/lib/navigation';
@@ -172,10 +172,7 @@ export default function App() {
                           component={AttendanceRouteScreen}
                         />
                         <Stack.Screen name="Products" component={ProductsScreen} />
-                        <Stack.Screen
-                          name="ChatDetailScreen"
-                          component={ChatDetailScreen}
-                        />
+                        <Stack.Screen name="POS" component={POSScreen} />
                         <Stack.Screen
                           name="ResiScan"
                           component={ResiScanScreen}
@@ -187,6 +184,10 @@ export default function App() {
                         <Stack.Screen
                           name="ServerConfiguration"
                           component={ServerConfigurationScreen}
+                        />
+                        <Stack.Screen
+                          name="AttendanceKiosk"
+                          component={AttendanceScreen}
                         />
                       </>
                     )}

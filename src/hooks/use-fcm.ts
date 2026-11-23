@@ -12,8 +12,6 @@ import {
   AuthorizationStatus,
   FirebaseMessagingTypes,
 } from '@react-native-firebase/messaging';
-import { registerFcmToken } from '../services/chat-api';
-import { navigate } from '../lib/navigation';
 
 /**
  * Request notification permission from the OS.
@@ -25,8 +23,7 @@ async function requestNotificationPermission(): Promise<boolean> {
         PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
         {
           title: 'Notification Permission',
-          message:
-            'GrocyLite needs notification access to alert you about new chat messages.',
+          message: 'Grocy Mobile needs notification access to send important updates.',
           buttonPositive: 'Allow',
           buttonNegative: 'Deny',
         },
@@ -46,43 +43,20 @@ async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /**
- * Get the FCM token and register it with our backend.
+ * Get the FCM token
  */
 async function registerToken() {
   try {
     const messaging = getMessaging();
     const token = await getToken(messaging);
     console.log('[FCM] Got token:', token ? token.substring(0, 20) + '...' : 'null');
-    if (token) {
-      await registerFcmToken(token);
-      console.log('[FCM] Token registered with backend successfully');
-    } else {
-      console.warn('[FCM] No token returned — check google-services.json / APNs key');
-    }
   } catch (e: any) {
     console.error('[FCM] registerToken failed:', e?.message || e);
   }
 }
 
 /**
- * Extract conversation ID from FCM payload data and navigate to chat.
- */
-function handleNotificationTap(
-  remoteMessage: FirebaseMessagingTypes.RemoteMessage,
-) {
-  const conversationId = remoteMessage?.data?.conversationId;
-  const title =
-    remoteMessage?.notification?.title ||
-    remoteMessage?.data?.senderName ||
-    'Chat';
-
-  if (conversationId) {
-    navigate('ChatDetailScreen', { conversationId, title });
-  }
-}
-
-/**
- * Main FCM hook — call once at app root after user is authenticated.
+ * Main FCM hook
  */
 export function useFcm(isAuthenticated: boolean) {
   useEffect(() => {
@@ -100,28 +74,12 @@ export function useFcm(isAuthenticated: boolean) {
       const messaging = getMessaging();
 
       // Re-register whenever token rotates
-      unsubscribeTokenRefresh = onTokenRefresh(messaging, async newToken => {
-        try {
-          await registerFcmToken(newToken);
-        } catch (_) {}
-      });
+      unsubscribeTokenRefresh = onTokenRefresh(messaging, async _newToken => {});
 
       // Foreground messages
       unsubscribeForeground = onMessage(messaging, async msg => {
-        console.log('[FCM] Foreground message received:', JSON.stringify(msg?.notification), 'data:', JSON.stringify(msg?.data));
+        console.log('[FCM] Foreground message received:', JSON.stringify(msg?.notification));
       });
-
-
-      // App in BACKGROUND and user tapped notification
-      onNotificationOpenedApp(messaging, remoteMessage => {
-        handleNotificationTap(remoteMessage);
-      });
-
-      // App KILLED and user tapped notification
-      const initialMessage = await getInitialNotification(messaging);
-      if (initialMessage) {
-        setTimeout(() => handleNotificationTap(initialMessage), 500);
-      }
     }
 
     setup();

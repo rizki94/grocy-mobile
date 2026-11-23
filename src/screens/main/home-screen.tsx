@@ -19,6 +19,7 @@ import {
   Ban,
   RefreshCw,
   Cloud,
+  ShoppingCart,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DatePicker } from '../../components/ui/date-picker';
@@ -249,13 +250,23 @@ export function HomeScreen() {
             <Text className="text-xs font-black text-muted-foreground uppercase tracking-[3px] mb-4 ml-1">
               {t('dashboard.quickActions')}
             </Text>
-            <View className="flex-row gap-4 mb-8">
+            <View className="flex-row gap-3 mb-8">
+              <Pressable
+                onPress={() => navigation.navigate('POS' as never)}
+                className="flex-1 bg-emerald-600 p-4 rounded-3xl items-center flex-row justify-center shadow-lg shadow-emerald-600/30 active:opacity-90"
+              >
+                <ShoppingCart size={18} color="#ffffff" />
+                <Text className="text-white font-black uppercase tracking-wider ml-2 text-xs">
+                  POS (Kasir)
+                </Text>
+              </Pressable>
+
               <Pressable
                 onPress={() => navigation.navigate('Attendance' as never)}
-                className="flex-1 bg-primary p-5 rounded-3xl items-center flex-row justify-center shadow-lg shadow-primary/30 active:opacity-90"
+                className="flex-1 bg-card border border-border p-4 rounded-3xl items-center flex-row justify-center active:bg-secondary/20 shadow-sm"
               >
-                <MapPin size={20} color={colors.primaryForeground} />
-                <Text className="text-primary-foreground font-black uppercase tracking-widest ml-3 text-xs">
+                <MapPin size={18} color={colors.primary} />
+                <Text className="text-foreground font-black uppercase tracking-wider ml-2 text-xs">
                   {t('dashboard.attendance')}
                 </Text>
               </Pressable>
