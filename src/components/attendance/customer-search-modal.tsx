@@ -5,8 +5,8 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Input } from '../ui/input';
 import { Card } from '../ui/card';
 import { useThemeColor } from '../../lib/colors';

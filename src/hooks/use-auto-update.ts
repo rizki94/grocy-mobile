@@ -403,9 +403,14 @@ export const useAutoUpdate = () => {
         Alert.alert('Status', 'Aplikasi GrocyLite Anda sudah menggunakan versi terbaru (v' + currentVersion + ').');
       }
     } catch (error: any) {
-      console.warn('Update check failed:', error);
       if (manual) {
+        console.warn('Update check failed:', error);
         Alert.alert('Gagal Memeriksa Pembaruan', 'Pastikan perangkat Anda terhubung ke internet dan coba kembali.');
+      } else {
+        // Silent on background startup check if no releases exist yet
+        if (error?.response?.status !== 404) {
+          console.log('[AutoUpdate] Background check skipped/failed:', error?.message);
+        }
       }
     } finally {
       emitUpdate({ isChecking: false });

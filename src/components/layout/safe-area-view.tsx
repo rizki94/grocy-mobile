@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView as RNSafeAreaView, View } from 'react-native';
+import { View } from 'react-native';
+import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 import { cn } from '../../lib/utils';
 
 interface SafeAreaViewProps

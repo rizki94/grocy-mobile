@@ -144,7 +144,7 @@ export const UpdateModal: React.FC = () => {
                 {/* Bar */}
                 <View className="h-3 w-full bg-secondary/40 rounded-full overflow-hidden border border-border/30">
                   <View
-                    className="h-full bg-primary rounded-full transition-all"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${Math.max(downloadProgress, 2)}%` }}
                   />
                 </View>

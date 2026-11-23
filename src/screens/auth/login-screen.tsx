@@ -153,12 +153,13 @@ export function LoginScreen({ navigation }: any) {
 
           {/* 1. Kasir POS (Mode PIN) */}
           <TouchableOpacity
+            activeOpacity={0.75}
             onPress={() => {
               setPin('');
               setPinError('');
               setShowPinModal(true);
             }}
-            className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex-row items-center gap-4 active:scale-[0.98] transition-all shadow-sm"
+            className="p-5 rounded-3xl bg-emerald-500/10 border border-emerald-500/30 flex-row items-center gap-4 active:bg-emerald-500/20 shadow-sm"
           >
             <View className="w-14 h-14 rounded-2xl bg-emerald-500 items-center justify-center shadow-lg shadow-emerald-500/30">
               <ShoppingCart size={28} color="#ffffff" strokeWidth={2.5} />
@@ -182,8 +183,9 @@ export function LoginScreen({ navigation }: any) {
 
           {/* 2. Absensi Karyawan */}
           <TouchableOpacity
+            activeOpacity={0.75}
             onPress={() => navigation.navigate('AttendanceKiosk')}
-            className="p-5 rounded-3xl bg-blue-500/10 border border-blue-500/30 flex-row items-center gap-4 active:scale-[0.98] transition-all shadow-sm"
+            className="p-5 rounded-3xl bg-blue-500/10 border border-blue-500/30 flex-row items-center gap-4 active:bg-blue-500/20 shadow-sm"
           >
             <View className="w-14 h-14 rounded-2xl bg-blue-500 items-center justify-center shadow-lg shadow-blue-500/30">
               <Clock size={28} color="#ffffff" strokeWidth={2.5} />
