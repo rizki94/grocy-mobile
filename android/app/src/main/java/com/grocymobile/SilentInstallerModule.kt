@@ -1,4 +1,4 @@
-package com.grocylite
+package com.grocymobile
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -40,7 +40,7 @@ class SilentInstallerModule(reactContext: ReactApplicationContext) : ReactContex
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(manageIntent)
-                promise.reject("PERMISSION_REQUIRED", "Harap berikan izin instalasi aplikasi tidak dikenal untuk GrocyLite.")
+                promise.reject("PERMISSION_REQUIRED", "Harap berikan izin instalasi aplikasi tidak dikenal untuk Grocy Mobile.")
                 return
             }
 
@@ -55,7 +55,7 @@ class SilentInstallerModule(reactContext: ReactApplicationContext) : ReactContex
             val session = packageInstaller.openSession(sessionId)
 
             val inputStream: InputStream = FileInputStream(apkFile)
-            val out = session.openWrite("GrocyLiteUpdate", 0, apkFile.length())
+            val out = session.openWrite("GrocyMobileUpdate", 0, apkFile.length())
             
             val buffer = ByteArray(65536)
             var n: Int
@@ -67,7 +67,7 @@ class SilentInstallerModule(reactContext: ReactApplicationContext) : ReactContex
             inputStream.close()
 
             val intent = Intent(context, SilentInstallerReceiver::class.java).apply {
-                action = "com.grocylite.INSTALL_COMPLETE"
+                action = "com.grocymobile.INSTALL_COMPLETE"
             }
             
             // FLAG_MUTABLE is strictly required on Android 12+ so PackageInstaller can fill in EXTRA_STATUS & EXTRA_INTENT
@@ -109,13 +109,13 @@ class SilentInstallerModule(reactContext: ReactApplicationContext) : ReactContex
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(manageIntent)
-                promise.reject("PERMISSION_REQUIRED", "Harap berikan izin instalasi aplikasi tidak dikenal untuk GrocyLite.")
+                promise.reject("PERMISSION_REQUIRED", "Harap berikan izin instalasi aplikasi tidak dikenal untuk Grocy Mobile.")
                 return
             }
 
             val uri: Uri = FileProvider.getUriForFile(
                 context,
-                "com.grocylite.provider",
+                "com.grocymobile.provider",
                 apkFile
             )
             

@@ -1,4 +1,4 @@
-package com.grocylite
+package com.grocymobile
 
 import android.content.Context
 import android.media.AudioManager

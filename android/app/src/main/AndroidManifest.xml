@@ -31,7 +31,7 @@
 
       <provider
           android:name="androidx.core.content.FileProvider"
-          android:authorities="com.grocylite.provider"
+          android:authorities="com.grocymobile.provider"
           android:exported="false"
           android:grantUriPermissions="true">
           <meta-data
@@ -53,7 +53,7 @@
 
       <receiver android:name=".SilentInstallerReceiver" android:exported="false">
           <intent-filter>
-              <action android:name="com.grocylite.INSTALL_COMPLETE" />
+              <action android:name="com.grocymobile.INSTALL_COMPLETE" />
           </intent-filter>
       </receiver>
     </application>

@@ -1,13 +1,13 @@
-package com.grocylite
+package com.grocymobile
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.uimanager.ViewManager
 
-class BeepSoundPackage : ReactPackage {
+class SilentInstallerPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(BeepSoundModule(reactContext))
+        return listOf(SilentInstallerModule(reactContext))
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
