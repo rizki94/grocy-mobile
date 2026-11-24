@@ -8,7 +8,7 @@ const { SilentInstaller } = NativeModules;
 
 // GitHub Repository Configuration
 const GITHUB_OWNER = 'rizki94';
-const GITHUB_REPO = 'GrocyLite';
+const GITHUB_REPO = 'grocy-mobile';
 const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 
 export interface GitHubAsset {
