@@ -23,7 +23,12 @@ export interface GitHubRelease {
   assets: GitHubAsset[];
 }
 
-export type UpdatePhase = 'idle' | 'ready' | 'downloading' | 'downloaded' | 'error';
+export type UpdatePhase =
+  | 'idle'
+  | 'ready'
+  | 'downloading'
+  | 'downloaded'
+  | 'error';
 
 interface UpdateState {
   showModal: boolean;
@@ -63,7 +68,7 @@ const listeners = new Set<(state: UpdateState) => void>();
 
 function emitUpdate(partial: Partial<UpdateState>) {
   currentState = { ...currentState, ...partial };
-  listeners.forEach((listener) => listener(currentState));
+  listeners.forEach(listener => listener(currentState));
 }
 
 // Global active download task reference for cancellation
@@ -78,7 +83,7 @@ export const isNewerVersion = (vLatest: string, vCurrent: string): boolean => {
     v
       .replace(/^v/, '')
       .split('.')
-      .map((n) => parseInt(n, 10) || 0);
+      .map(n => parseInt(n, 10) || 0);
 
   const [lMaj = 0, lMin = 0, lPatch = 0] = parse(vLatest);
   const [cMaj = 0, cMin = 0, cPatch = 0] = parse(vCurrent);
@@ -95,7 +100,8 @@ export const isNewerVersion = (vLatest: string, vCurrent: string): boolean => {
 export const getAbiAliases = (abi: string): string[] => {
   const lower = abi.toLowerCase();
   if (lower.includes('arm64')) return ['arm64-v8a', 'arm64'];
-  if (lower.includes('armeabi') || lower.includes('armv7')) return ['armeabi-v7a', 'armeabi', 'armv7'];
+  if (lower.includes('armeabi') || lower.includes('armv7'))
+    return ['armeabi-v7a', 'armeabi', 'armv7'];
   if (lower.includes('x86_64')) return ['x86_64'];
   if (lower.includes('x86')) return ['x86'];
   return [lower];
@@ -105,9 +111,9 @@ export const getAbiAliases = (abi: string): string[] => {
  * Pick the best matching APK asset for the current device's hardware architecture
  */
 export const pickBestAsset = async (
-  assets: GitHubAsset[]
+  assets: GitHubAsset[],
 ): Promise<{ asset: GitHubAsset; abiLabel: string } | null> => {
-  const apkAssets = assets.filter((a) => a.name.toLowerCase().endsWith('.apk'));
+  const apkAssets = assets.filter(a => a.name.toLowerCase().endsWith('.apk'));
   if (apkAssets.length === 0) return null;
 
   // 1. Query device hardware supported ABIs in order of preference
@@ -122,7 +128,7 @@ export const pickBestAsset = async (
   for (const abi of deviceAbis) {
     const aliases = getAbiAliases(abi);
     for (const alias of aliases) {
-      const match = apkAssets.find((a) => a.name.toLowerCase().includes(alias));
+      const match = apkAssets.find(a => a.name.toLowerCase().includes(alias));
       if (match) {
         return { asset: match, abiLabel: abi };
       }
@@ -130,7 +136,9 @@ export const pickBestAsset = async (
   }
 
   // 3. Fallback: Universal APK
-  const universalMatch = apkAssets.find((a) => a.name.toLowerCase().includes('universal'));
+  const universalMatch = apkAssets.find(a =>
+    a.name.toLowerCase().includes('universal'),
+  );
   if (universalMatch) {
     return { asset: universalMatch, abiLabel: 'universal' };
   }
@@ -204,7 +212,8 @@ export const triggerInstall = async () => {
     if (!exists) {
       emitUpdate({
         phase: 'error',
-        errorMessage: 'Berkas APK tidak ditemukan di cache. Silakan unduh ulang.',
+        errorMessage:
+          'Berkas APK tidak ditemukan di cache. Silakan unduh ulang.',
       });
       return;
     }
@@ -215,20 +224,22 @@ export const triggerInstall = async () => {
       ReactNativeBlobUtil.android.actionViewIntent(
         finalApkPath,
         'application/vnd.android.package-archive',
-        'com.grocylite.provider'
+        'com.grocylite.provider',
       );
     }
   } catch (err: any) {
     console.error('Trigger install error:', err);
     if (err?.code === 'PERMISSION_REQUIRED' || err?.message?.includes('izin')) {
       emitUpdate({
-        errorMessage: 'Harap izinkan "Instal aplikasi tidak dikenal" untuk GrocyLite, lalu ketuk Pasang Sekarang.',
+        errorMessage:
+          'Harap izinkan "Instal aplikasi tidak dikenal" untuk GrocyLite, lalu ketuk Pasang Sekarang.',
       });
       return;
     }
     emitUpdate({
       phase: 'error',
-      errorMessage: err?.message || 'Gagal membuka penginstal aplikasi Android.',
+      errorMessage:
+        err?.message || 'Gagal membuka penginstal aplikasi Android.',
     });
   }
 };
@@ -239,7 +250,10 @@ export const triggerInstall = async () => {
 export const startUpdateDownload = async () => {
   const asset = currentState.matchedAsset;
   if (!asset) {
-    emitUpdate({ phase: 'error', errorMessage: 'Berkas pembaruan tidak ditemukan.' });
+    emitUpdate({
+      phase: 'error',
+      errorMessage: 'Berkas pembaruan tidak ditemukan.',
+    });
     return;
   }
 
@@ -254,7 +268,9 @@ export const startUpdateDownload = async () => {
     if (await ReactNativeBlobUtil.fs.exists(finalApkPath)) {
       const stat = await ReactNativeBlobUtil.fs.stat(finalApkPath);
       if (asset.size && asset.size > 0 && Number(stat.size) === asset.size) {
-        console.log('APK already completely downloaded. Launching installer directly.');
+        console.log(
+          'APK already completely downloaded. Launching installer directly.',
+        );
         emitUpdate({
           phase: 'downloaded',
           downloadProgress: 100,
@@ -290,15 +306,21 @@ export const startUpdateDownload = async () => {
     }).fetch('GET', asset.browser_download_url);
 
     // Track real-time byte progress
-    activeDownloadTask.progress({ interval: 150 }, (received: number, total: number) => {
-      const safeTotal = total > 0 ? total : asset.size || 1;
-      const pct = Math.min(Math.max(Math.round((received / safeTotal) * 100), 0), 100);
-      emitUpdate({
-        downloadProgress: pct,
-        downloadedBytes: received,
-        totalBytes: safeTotal,
-      });
-    });
+    activeDownloadTask.progress(
+      { interval: 150 },
+      (received: number, total: number) => {
+        const safeTotal = total > 0 ? total : asset.size || 1;
+        const pct = Math.min(
+          Math.max(Math.round((received / safeTotal) * 100), 0),
+          100,
+        );
+        emitUpdate({
+          downloadProgress: pct,
+          downloadedBytes: received,
+          totalBytes: safeTotal,
+        });
+      },
+    );
 
     const res = await activeDownloadTask;
     activeDownloadTask = null;
@@ -314,9 +336,15 @@ export const startUpdateDownload = async () => {
     const stat = await ReactNativeBlobUtil.fs.stat(downloadedPath);
     const downloadedSize = Number(stat.size);
 
-    if (asset.size && asset.size > 0 && Math.abs(downloadedSize - asset.size) > 1024) {
+    if (
+      asset.size &&
+      asset.size > 0 &&
+      Math.abs(downloadedSize - asset.size) > 1024
+    ) {
       await ReactNativeBlobUtil.fs.unlink(downloadedPath).catch(() => {});
-      throw new Error(`Ukuran file tidak lengkap (${(downloadedSize / (1024 * 1024)).toFixed(1)} MB). Unduhan dibatalkan.`);
+      throw new Error(
+        `Ukuran file tidak lengkap (${(downloadedSize / (1024 * 1024)).toFixed(1)} MB). Unduhan dibatalkan.`,
+      );
     }
 
     if (downloadedSize < 5 * 1024 * 1024) {
@@ -337,9 +365,15 @@ export const startUpdateDownload = async () => {
         await ReactNativeBlobUtil.fs.unlink(publicApkPath).catch(() => {});
       }
       await ReactNativeBlobUtil.fs.cp(finalApkPath, publicApkPath);
-      console.log('Successfully copied update APK to public Download folder:', publicApkPath);
+      console.log(
+        'Successfully copied update APK to public Download folder:',
+        publicApkPath,
+      );
     } catch (cpErr) {
-      console.warn('Could not copy to public Download folder (Scoped Storage):', cpErr);
+      console.warn(
+        'Could not copy to public Download folder (Scoped Storage):',
+        cpErr,
+      );
       savedLocationDisplay = 'Internal Cache';
     }
 
@@ -356,12 +390,16 @@ export const startUpdateDownload = async () => {
     triggerInstall();
   } catch (err: any) {
     console.error('Update download error:', err);
-    if (err?.message?.includes('cancelled') || err?.message?.includes('canceled')) {
+    if (
+      err?.message?.includes('cancelled') ||
+      err?.message?.includes('canceled')
+    ) {
       return;
     }
     emitUpdate({
       phase: 'error',
-      errorMessage: err?.message || 'Terjadi kesalahan saat mengunduh pembaruan.',
+      errorMessage:
+        err?.message || 'Terjadi kesalahan saat mengunduh pembaruan.',
     });
   }
 };
@@ -395,7 +433,10 @@ export const useAutoUpdate = () => {
           try {
             if (await ReactNativeBlobUtil.fs.exists(finalApkPath)) {
               const stat = await ReactNativeBlobUtil.fs.stat(finalApkPath);
-              if (matched.asset.size && Number(stat.size) === matched.asset.size) {
+              if (
+                matched.asset.size &&
+                Number(stat.size) === matched.asset.size
+              ) {
                 isAlreadyDownloaded = true;
               }
             }
@@ -412,14 +453,24 @@ export const useAutoUpdate = () => {
             downloadProgress: isAlreadyDownloaded ? 100 : 0,
             downloadedBytes: isAlreadyDownloaded ? matched.asset.size || 0 : 0,
             totalBytes: matched.asset.size || 0,
-            savedPath: isAlreadyDownloaded ? `Download/GrocyLite-v${latestVersion}.apk` : null,
+            savedPath: isAlreadyDownloaded
+              ? `Download/GrocyLite-v${latestVersion}.apk`
+              : null,
             errorMessage: null,
           });
         } else if (manual) {
-          Alert.alert('APK Tidak Ditemukan', 'Versi baru ditemukan tetapi paket instalasi (.apk) belum tersedia di rilis GitHub.');
+          Alert.alert(
+            'APK Tidak Ditemukan',
+            'Versi baru ditemukan tetapi paket instalasi (.apk) belum tersedia di rilis GitHub.',
+          );
         }
       } else if (manual) {
-        Alert.alert('Status', 'Aplikasi GrocyLite Anda sudah menggunakan versi terbaru (v' + currentVersion + ').');
+        Alert.alert(
+          'Status',
+          'Aplikasi GrocyLite Anda sudah menggunakan versi terbaru (v' +
+            currentVersion +
+            ').',
+        );
       }
     } catch (error: any) {
       if (manual) {
@@ -427,23 +478,26 @@ export const useAutoUpdate = () => {
         if (error?.response?.status === 404) {
           Alert.alert(
             'Belum Ada Pembaruan',
-            'Tidak ada versi rilis yang ditemukan di repositori GitHub.'
+            'Tidak ada versi rilis yang ditemukan di repositori GitHub.',
           );
         } else if (error?.response?.status === 403) {
           Alert.alert(
             'Batas Akses Terlampaui',
-            'Batas permintaan publik ke GitHub API telah tercapai. Silakan coba kembali beberapa saat lagi.'
+            'Batas permintaan publik ke GitHub API telah tercapai. Silakan coba kembali beberapa saat lagi.',
           );
         } else {
           Alert.alert(
             'Gagal Memeriksa Pembaruan',
-            'Pastikan perangkat Anda terhubung ke internet dan coba kembali.'
+            'Pastikan perangkat Anda terhubung ke internet dan coba kembali.',
           );
         }
       } else {
         // Silent on background startup check if no releases exist yet
         if (error?.response?.status !== 404) {
-          console.log('[AutoUpdate] Background check skipped/failed:', error?.message);
+          console.log(
+            '[AutoUpdate] Background check skipped/failed:',
+            error?.message,
+          );
         }
       }
     } finally {
