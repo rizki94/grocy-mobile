@@ -78,7 +78,7 @@ export default function App() {
                     {state.loading ? (
                       <Stack.Screen name="Splash" component={SplashScreen} />
                     ) : state.user ? (
-                      state.user.isPinSession ? (
+                      state.user.role === 'cashier' || state.user.isPinSession ? (
                         <>
                           <Stack.Screen name="POS" component={POSScreen} />
                           <Stack.Screen
