@@ -56,14 +56,14 @@ console.log(`\n🚀 Publishing release ${tag} to GitHub...`);
 const quotedApks = apkFiles.map((f) => `"${f}"`).join(' ');
 
 try {
-  const cmd = `gh release create ${tag} ${quotedApks} --repo rizki94/grocy-mobile --title "Grocy Mobile ${tag}" --notes "Release version ${tag}" --latest`;
+  const cmd = `gh release create ${tag} ${quotedApks} --repo rizki94/GrocyLite --title "Grocy Mobile ${tag}" --notes "Release version ${tag}" --latest`;
   execSync(cmd, { stdio: 'inherit', cwd: rootDir });
   console.log(`\n✅ Berhasil! Release ${tag} telah dipublikasikan sebagai Latest Release.\n`);
 } catch (e) {
   // If release already exists, upload/clobber assets
   console.log(`\n⚠️  Release ${tag} mungkin sudah ada. Mencoba upload aset ke release yang sudah ada...`);
   try {
-    const uploadCmd = `gh release upload ${tag} ${quotedApks} --repo rizki94/grocy-mobile --clobber`;
+    const uploadCmd = `gh release upload ${tag} ${quotedApks} --repo rizki94/GrocyLite --clobber`;
     execSync(uploadCmd, { stdio: 'inherit', cwd: rootDir });
     console.log(`\n✅ Aset APK berhasil di-upload ke release ${tag}.\n`);
   } catch (uploadError) {

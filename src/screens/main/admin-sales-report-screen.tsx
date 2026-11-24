@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import { apiClient } from '../../hooks/use-connection';
 import { UserContext } from '../../contexts/app-context';
 import {
   TrendingUp,
-  ShoppingCart,
   ShoppingBag,
   Truck,
   Store,
@@ -22,9 +21,7 @@ import {
   Package,
   Receipt,
   RefreshCw,
-  Calendar,
   Layers,
-  ChevronRight,
 } from 'lucide-react-native';
 import moment from 'moment';
 
@@ -65,7 +62,6 @@ interface DashboardStats {
 
 export function AdminSalesReportScreen({ navigation }: any) {
   const colors = useThemeColor();
-  const user = useContext(UserContext);
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,7 +84,7 @@ export function AdminSalesReportScreen({ navigation }: any) {
       console.error('[DashboardStats] Fetch error:', err);
       setError(
         err.response?.data?.message ||
-          'Gagal memuat ringkasan penjualan. Pastikan server terhubung.'
+          'Gagal memuat ringkasan penjualan. Pastikan server terhubung.',
       );
     } finally {
       setLoading(false);
@@ -112,9 +108,12 @@ export function AdminSalesReportScreen({ navigation }: any) {
 
   const grandTotalChannels = posTotal + marketplaceTotal + directSalesTotal;
 
-  const posPct = grandTotalChannels > 0 ? (posTotal / grandTotalChannels) * 100 : 0;
-  const mpPct = grandTotalChannels > 0 ? (marketplaceTotal / grandTotalChannels) * 100 : 0;
-  const directPct = grandTotalChannels > 0 ? (directSalesTotal / grandTotalChannels) * 100 : 0;
+  const posPct =
+    grandTotalChannels > 0 ? (posTotal / grandTotalChannels) * 100 : 0;
+  const mpPct =
+    grandTotalChannels > 0 ? (marketplaceTotal / grandTotalChannels) * 100 : 0;
+  const directPct =
+    grandTotalChannels > 0 ? (directSalesTotal / grandTotalChannels) * 100 : 0;
 
   return (
     <AppLayout title="Laporan Penjualan" showBack={false}>
@@ -327,131 +326,117 @@ export function AdminSalesReportScreen({ navigation }: any) {
             </View>
 
             {/* TOP SELLING PRODUCTS */}
-            {stats?.topSellingProducts && stats.topSellingProducts.length > 0 && (
-              <View>
-                <View className="flex-row items-center gap-2 mb-3">
-                  <Package size={16} color={colors.primary} />
-                  <Text className="text-sm font-black text-foreground">
-                    Top 5 Produk Terlaris
-                  </Text>
-                </View>
-                <View className="rounded-2xl bg-card border border-border overflow-hidden">
-                  {stats.topSellingProducts.map((p, idx) => (
-                    <View
-                      key={p.productId || idx}
-                      className={`p-3.5 flex-row items-center justify-between ${
-                        idx !== (stats.topSellingProducts?.length || 0) - 1
-                          ? 'border-b border-border/60'
-                          : ''
-                      }`}
-                    >
-                      <View className="flex-row items-center gap-3 flex-1 mr-2">
-                        <View className="w-6 h-6 rounded-full bg-secondary items-center justify-center">
-                          <Text className="text-[11px] font-black text-muted-foreground">
-                            {idx + 1}
-                          </Text>
-                        </View>
-                        <View className="flex-1">
-                          <Text
-                            className="text-xs font-bold text-foreground"
-                            numberOfLines={1}
-                          >
-                            {p.name}
-                          </Text>
-                          <Text className="text-[10px] text-muted-foreground mt-0.5">
-                            Terjual {p.totalQty} unit
-                          </Text>
-                        </View>
-                      </View>
-                      <Text className="text-xs font-bold text-foreground font-mono">
-                        {formatCurrency(p.totalRevenue)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* RECENT TRANSACTIONS */}
-            {stats?.recentTransactions && stats.recentTransactions.length > 0 && (
-              <View>
-                <View className="flex-row items-center gap-2 mb-3">
-                  <Receipt size={16} color={colors.primary} />
-                  <Text className="text-sm font-black text-foreground">
-                    Transaksi Penjualan Terbaru
-                  </Text>
-                </View>
-                <View className="rounded-2xl bg-card border border-border overflow-hidden">
-                  {stats.recentTransactions.slice(0, 5).map((t, idx) => {
-                    const isPos = t.type === 'pos_sales';
-                    const isMarketplace = !!(t as any).marketplaceId;
-                    const channelLabel = isMarketplace
-                      ? 'Marketplace'
-                      : isPos
-                      ? 'POS'
-                      : 'Direct';
-                    const badgeColor = isMarketplace
-                      ? 'bg-amber-500/15 text-amber-500'
-                      : isPos
-                      ? 'bg-emerald-500/15 text-emerald-500'
-                      : 'bg-blue-500/15 text-blue-500';
-
-                    return (
+            {stats?.topSellingProducts &&
+              stats.topSellingProducts.length > 0 && (
+                <View>
+                  <View className="flex-row items-center gap-2 mb-3">
+                    <Package size={16} color={colors.primary} />
+                    <Text className="text-sm font-black text-foreground">
+                      Top 5 Produk Terlaris
+                    </Text>
+                  </View>
+                  <View className="rounded-2xl bg-card border border-border overflow-hidden">
+                    {stats.topSellingProducts.map((p, idx) => (
                       <View
-                        key={t.id || t.invoice || idx}
+                        key={p.productId || idx}
                         className={`p-3.5 flex-row items-center justify-between ${
-                          idx !== Math.min(stats.recentTransactions?.length || 0, 5) - 1
+                          idx !== (stats.topSellingProducts?.length || 0) - 1
                             ? 'border-b border-border/60'
                             : ''
                         }`}
                       >
-                        <View className="flex-1 mr-2">
-                          <View className="flex-row items-center gap-1.5">
-                            <Text className="text-xs font-black text-foreground font-mono">
-                              {t.invoice}
+                        <View className="flex-row items-center gap-3 flex-1 mr-2">
+                          <View className="w-6 h-6 rounded-full bg-secondary items-center justify-center">
+                            <Text className="text-[11px] font-black text-muted-foreground">
+                              {idx + 1}
                             </Text>
-                            <View className={`px-1.5 py-0.5 rounded ${badgeColor}`}>
-                              <Text className={`text-[9px] font-bold ${badgeColor.split(' ')[1]}`}>
-                                {channelLabel}
-                              </Text>
-                            </View>
                           </View>
-                          <Text className="text-[10px] text-muted-foreground mt-0.5">
-                            {t.customerName ? `${t.customerName} • ` : ''}
-                            {moment(t.createdAt).format('DD/MM/YYYY HH:mm')}
-                          </Text>
+                          <View className="flex-1">
+                            <Text
+                              className="text-xs font-bold text-foreground"
+                              numberOfLines={1}
+                            >
+                              {p.name}
+                            </Text>
+                            <Text className="text-[10px] text-muted-foreground mt-0.5">
+                              Terjual {p.totalQty} unit
+                            </Text>
+                          </View>
                         </View>
-                        <Text className="text-xs font-black text-foreground font-mono">
-                          {formatCurrency(t.totalAmount)}
+                        <Text className="text-xs font-bold text-foreground font-mono">
+                          {formatCurrency(p.totalRevenue)}
                         </Text>
                       </View>
-                    );
-                  })}
+                    ))}
+                  </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Quick Access to POS */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => navigation.navigate('POS')}
-              className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex-row items-center justify-between active:bg-emerald-500/25"
-            >
-              <View className="flex-row items-center gap-3">
-                <View className="w-10 h-10 rounded-xl bg-emerald-500 items-center justify-center">
-                  <ShoppingCart size={20} color="#ffffff" />
-                </View>
+            {/* RECENT TRANSACTIONS */}
+            {stats?.recentTransactions &&
+              stats.recentTransactions.length > 0 && (
                 <View>
-                  <Text className="text-sm font-bold text-foreground">
-                    Buka Kasir POS
-                  </Text>
-                  <Text className="text-xs text-muted-foreground">
-                    Mulai transaksi penjualan toko langsung
-                  </Text>
+                  <View className="flex-row items-center gap-2 mb-3">
+                    <Receipt size={16} color={colors.primary} />
+                    <Text className="text-sm font-black text-foreground">
+                      Transaksi Penjualan Terbaru
+                    </Text>
+                  </View>
+                  <View className="rounded-2xl bg-card border border-border overflow-hidden">
+                    {stats.recentTransactions.slice(0, 5).map((t, idx) => {
+                      const isPos = t.type === 'pos_sales';
+                      const isMarketplace = !!(t as any).marketplaceId;
+                      const channelLabel = isMarketplace
+                        ? 'Marketplace'
+                        : isPos
+                          ? 'POS'
+                          : 'Direct';
+                      const badgeColor = isMarketplace
+                        ? 'bg-amber-500/15 text-amber-500'
+                        : isPos
+                          ? 'bg-emerald-500/15 text-emerald-500'
+                          : 'bg-blue-500/15 text-blue-500';
+
+                      return (
+                        <View
+                          key={t.id || t.invoice || idx}
+                          className={`p-3.5 flex-row items-center justify-between ${
+                            idx !==
+                            Math.min(stats.recentTransactions?.length || 0, 5) -
+                              1
+                              ? 'border-b border-border/60'
+                              : ''
+                          }`}
+                        >
+                          <View className="flex-1 mr-2">
+                            <View className="flex-row items-center gap-1.5">
+                              <Text className="text-xs font-black text-foreground font-mono">
+                                {t.invoice}
+                              </Text>
+                              <View
+                                className={`px-1.5 py-0.5 rounded ${badgeColor}`}
+                              >
+                                <Text
+                                  className={`text-[9px] font-bold ${badgeColor.split(' ')[1]}`}
+                                >
+                                  {channelLabel}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text className="text-[10px] text-muted-foreground mt-0.5">
+                              {t.customerName ? `${t.customerName} • ` : ''}
+                              {moment(t.createdAt).format('DD/MM/YYYY HH:mm')}
+                            </Text>
+                          </View>
+                          <Text className="text-xs font-black text-foreground font-mono">
+                            {formatCurrency(t.totalAmount)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
-              <ChevronRight size={18} color={colors.foreground} />
-            </TouchableOpacity>
+              )}
           </View>
         )}
       </ScrollView>

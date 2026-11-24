@@ -8,7 +8,7 @@ const { SilentInstaller } = NativeModules;
 
 // GitHub Repository Configuration
 const GITHUB_OWNER = 'rizki94';
-const GITHUB_REPO = 'grocy-mobile';
+const GITHUB_REPO = 'GrocyLite';
 const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`;
 
 export interface GitHubAsset {
@@ -68,6 +68,25 @@ function emitUpdate(partial: Partial<UpdateState>) {
 
 // Global active download task reference for cancellation
 let activeDownloadTask: any = null;
+
+/**
+ * Compares two semantic version strings (e.g. "2.1.8" vs "2.2.0")
+ * Returns true if vLatest is strictly newer than vCurrent
+ */
+export const isNewerVersion = (vLatest: string, vCurrent: string): boolean => {
+  const parse = (v: string) =>
+    v
+      .replace(/^v/, '')
+      .split('.')
+      .map((n) => parseInt(n, 10) || 0);
+
+  const [lMaj = 0, lMin = 0, lPatch = 0] = parse(vLatest);
+  const [cMaj = 0, cMin = 0, cPatch = 0] = parse(vCurrent);
+
+  if (lMaj !== cMaj) return lMaj > cMaj;
+  if (lMin !== cMin) return lMin > cMin;
+  return lPatch > cPatch;
+};
 
 /**
  * Normalizes ABI names for flexible matching with GitHub release asset filenames
@@ -367,7 +386,7 @@ export const useAutoUpdate = () => {
       const latestVersion = latestRelease.tag_name.replace(/^v/, '');
       const currentVersion = DeviceInfo.getVersion();
 
-      if (latestVersion > currentVersion) {
+      if (isNewerVersion(latestVersion, currentVersion)) {
         const matched = await pickBestAsset(latestRelease.assets || []);
 
         if (matched) {
@@ -405,7 +424,22 @@ export const useAutoUpdate = () => {
     } catch (error: any) {
       if (manual) {
         console.warn('Update check failed:', error);
-        Alert.alert('Gagal Memeriksa Pembaruan', 'Pastikan perangkat Anda terhubung ke internet dan coba kembali.');
+        if (error?.response?.status === 404) {
+          Alert.alert(
+            'Belum Ada Pembaruan',
+            'Tidak ada versi rilis yang ditemukan di repositori GitHub.'
+          );
+        } else if (error?.response?.status === 403) {
+          Alert.alert(
+            'Batas Akses Terlampaui',
+            'Batas permintaan publik ke GitHub API telah tercapai. Silakan coba kembali beberapa saat lagi.'
+          );
+        } else {
+          Alert.alert(
+            'Gagal Memeriksa Pembaruan',
+            'Pastikan perangkat Anda terhubung ke internet dan coba kembali.'
+          );
+        }
       } else {
         // Silent on background startup check if no releases exist yet
         if (error?.response?.status !== 404) {
